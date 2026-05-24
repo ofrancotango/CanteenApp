@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.example.canteen.app-merged_res-56:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.example.canteen.app-main-58:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.example.canteen.app-merged_res-56:/xml_file_paths.xml.flat",
+        "source": "com.example.canteen.app-main-58:/xml/file_paths.xml"
+    }
+]

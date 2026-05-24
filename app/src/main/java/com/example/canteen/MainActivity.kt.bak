@@ -1,0 +1,99 @@
+package com.example.canteen
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.example.canteen.data.AccessRepository
+import com.example.canteen.data.VerificationResult
+import com.example.canteen.ui.HomeScreen
+import com.example.canteen.ui.ResultScreen
+import com.example.canteen.ui.ScannerStub
+import com.example.canteen.ui.StatsScreen
+import com.example.canteen.ui.theme.CanteenTheme
+import java.io.ByteArrayInputStream
+
+class MainActivity : ComponentActivity() {
+
+    // Ideally this should be injected via Hilt or Koin
+    private val repository = AccessRepository()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Load mock data for this prototype
+        // In reality, this would read from assets or a file
+        val mockCsv = """
+            Mario Giuseppe.Rossi, 2023-10-01
+            Mario Giuseppe.Rossi, 2023-10-02
+            Luigi Verdi, 2023-10-01
+            Renée-Louise, 2023-10-01
+        """.trimIndent()
+        
+        repository.loadData(ByteArrayInputStream(mockCsv.toByteArray()))
+
+        setContent {
+            CanteenTheme {
+                AppNavigation(repository)
+            }
+        }
+    }
+}
+
+enum class Screen {
+    HOME,
+    SCANNER,
+    RESULT,
+    STATS
+}
+
+@Composable
+fun AppNavigation(repository: AccessRepository) {
+    var currentScreen by remember { mutableStateOf(Screen.HOME) }
+    var lastResult by remember { mutableStateOf<VerificationResult?>(null) }
+    
+    // Simple state refresh trigger
+    var statsRefresh by remember { mutableStateOf(0) }
+
+    when (currentScreen) {
+        Screen.HOME -> {
+            HomeScreen(
+                scansToday = repository.getStats()["total_scans_today"] as? Int ?: 0,
+                onScanClick = { currentScreen = Screen.SCANNER },
+                onStatsClick = { currentScreen = Screen.STATS }
+            )
+        }
+        Screen.SCANNER -> {
+            ScannerStub(
+                onScanCode = { code ->
+                    lastResult = repository.verifyAccess(code)
+                    currentScreen = Screen.RESULT
+                },
+                onCancel = { currentScreen = Screen.HOME }
+            )
+        }
+        Screen.RESULT -> {
+            lastResult?.let { result ->
+                ResultScreen(
+                    result = result,
+                    onNextClick = { 
+                        // reset for next person
+                        currentScreen = Screen.HOME 
+                    }
+                )
+            }
+        }
+        Screen.STATS -> {
+            // Force read stats
+            val stats = repository.getStats()
+            StatsScreen(
+                stats = stats,
+                onBackClick = { currentScreen = Screen.HOME }
+            )
+        }
+    }
+}
