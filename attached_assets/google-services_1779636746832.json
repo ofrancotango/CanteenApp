@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "682744221832",
+    "project_id": "app-cant",
+    "storage_bucket": "app-cant.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:682744221832:android:d501ddca4b6c32d86bcf3d",
+        "android_client_info": {
+          "package_name": "com.example.canteen"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA0XzNkbuE61fCJ68cOyoX62Noao_sdqTI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

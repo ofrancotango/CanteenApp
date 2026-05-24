@@ -12,7 +12,7 @@ import java.util.Locale
 
 class FirebaseSyncRepository {
 
-    private val database = FirebaseDatabase.getInstance()
+    private val database = FirebaseDatabase.getInstance("https://app-cant-default-rtdb.firebaseio.com/")
     private val configRef = database.getReference("config")
     private val scansRef = database.getReference("scans")
 
