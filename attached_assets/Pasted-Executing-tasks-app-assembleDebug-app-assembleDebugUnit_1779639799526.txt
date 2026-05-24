@@ -1,0 +1,96 @@
+Executing tasks: [:app:assembleDebug, :app:assembleDebugUnitTest, :app:assembleDebugAndroidTest] in project /Users/franco/Desktop/CanteenApp (1)
+
+> Task :app:createDebugVariantModel
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generateDebugResValues
+> Task :app:processDebugGoogleServices
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugNativeLibs
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeExtDexDebug
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:assembleDebugUnitTest UP-TO-DATE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libbarhopper_v3.so, libimage_processing_util_jni.so.
+
+> Task :app:checkDebugAndroidTestAarMetadata
+> Task :app:generateDebugAndroidTestResValues
+> Task :app:mapDebugAndroidTestSourceSetPaths
+> Task :app:generateDebugAndroidTestResources
+> Task :app:mergeDebugAndroidTestResources
+> Task :app:processDebugAndroidTestManifest
+> Task :app:processDebugAndroidTestResources
+> Task :app:javaPreCompileDebugAndroidTest
+> Task :app:mergeDebugAndroidTestShaders
+> Task :app:compileDebugAndroidTestShaders NO-SOURCE
+> Task :app:generateDebugAndroidTestAssets UP-TO-DATE
+> Task :app:mergeDebugAndroidTestAssets
+> Task :app:compressDebugAndroidTestAssets
+> Task :app:checkDebugAndroidTestDuplicateClasses
+> Task :app:desugarDebugAndroidTestFileDependencies
+> Task :app:mergeExtDexDebugAndroidTest
+> Task :app:mergeLibDexDebugAndroidTest
+> Task :app:mergeDebugAndroidTestJniLibFolders
+> Task :app:mergeDebugAndroidTestNativeLibs NO-SOURCE
+> Task :app:stripDebugAndroidTestDebugSymbols NO-SOURCE
+> Task :app:validateSigningDebugAndroidTest
+> Task :app:writeDebugAndroidTestSigningConfigVersions
+> Task :app:processDebugResources
+> Task :app:kspDebugKotlin
+
+> Task :app:compileDebugKotlin
+w: file:///Users/franco/Desktop/CanteenApp%20(1)/app/src/main/java/com/example/canteen/data/AccessRepository.kt:73:9 This is a delicate API and its use requires care. Make sure you fully read and understand documentation of the declaration that is marked as a delicate API.
+w: file:///Users/franco/Desktop/CanteenApp%20(1)/app/src/main/java/com/example/canteen/data/AccessRepository.kt:212:18 Parameter 'csvInputStream' is never used
+w: file:///Users/franco/Desktop/CanteenApp%20(1)/app/src/main/java/com/example/canteen/data/AccessRepository.kt:265:13 Variable 'lowerCompany' is never used
+w: file:///Users/franco/Desktop/CanteenApp%20(1)/app/src/main/java/com/example/canteen/data/AccessRepository.kt:335:13 This is a delicate API and its use requires care. Make sure you fully read and understand documentation of the declaration that is marked as a delicate API.
+w: file:///Users/franco/Desktop/CanteenApp%20(1)/app/src/main/java/com/example/canteen/data/AccessRepository.kt:341:43 Unnecessary non-null assertion (!!) on a non-null receiver of type Employee
+w: file:///Users/franco/Desktop/CanteenApp%20(1)/app/src/main/java/com/example/canteen/data/AccessRepository.kt:367:17 This is a delicate API and its use requires care. Make sure you fully read and understand documentation of the declaration that is marked as a delicate API.
+w: file:///Users/franco/Desktop/CanteenApp%20(1)/app/src/main/java/com/example/canteen/data/AccessRepository.kt:373:47 Unnecessary non-null assertion (!!) on a non-null receiver of type Employee
+w: file:///Users/franco/Desktop/CanteenApp%20(1)/app/src/main/java/com/example/canteen/data/AccessRepository.kt:398:9 This is a delicate API and its use requires care. Make sure you fully read and understand documentation of the declaration that is marked as a delicate API.
+
+> Task :app:compileDebugJavaWithJavac FAILED
+> Task :app:processDebugJavaRes
+> Task :app:mergeDebugJavaResource
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugJavaWithJavac'.
+> Could not resolve all files for configuration ':app:androidJdkImage'.
+   > Failed to transform core-for-system-modules.jar to match attributes {artifactType=_internal_android_jdk_image, org.gradle.libraryelements=jar, org.gradle.usage=java-runtime}.
+      > Execution failed for JdkImageTransform: /Users/franco/Library/Android/sdk/platforms/android-34/core-for-system-modules.jar.
+         > Error while executing process /Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/jlink with arguments {--module-path /Users/franco/.gradle/caches/transforms-4/f2466a0a3ca4d8c9b6241afcd98620fb-2afc8fe8-f0db-478d-b230-4f505f4f4a27/transformed/output/temp/jmod --add-modules java.base --output /Users/franco/.gradle/caches/transforms-4/f2466a0a3ca4d8c9b6241afcd98620fb-2afc8fe8-f0db-478d-b230-4f505f4f4a27/transformed/output/jdkImage --disable-plugin system-modules}
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 20s
+50 actionable tasks: 50 executed
