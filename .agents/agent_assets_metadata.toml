@@ -5,4 +5,4 @@ generated = []
 id = "sF9qI2ZsNxh3-j39RY1VC"
 uri = "file://CanteenApp.zip"
 type = "unspecified"
-title = "CanteenApp — AGP 8.1.4 fix"
+title = "CanteenApp — AGP 8.3.2 + Gradle 8.6 (Java 21)"
