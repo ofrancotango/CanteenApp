@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,8 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun ServiceDisabledScreen(onAdminUnlock: () -> Unit) {
@@ -47,26 +46,28 @@ fun ServiceDisabledScreen(onAdminUnlock: () -> Unit) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(32.dp)
+            modifier = Modifier.padding(48.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Block,
-                contentDescription = null,
-                modifier = Modifier.size(96.dp),
-                tint = Color(0xFFF44336)
+            Text(
+                text = "✕",
+                fontSize = 56.sp,
+                color = Color(0xFFEF4444),
+                fontWeight = FontWeight.Thin
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
             Text(
                 text = "Service Unavailable",
                 style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "The canteen access service is currently offline.\nPlease contact the administrator.",
+                text = "The canteen access service is currently offline.\nContact the administrator.",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
         }
     }

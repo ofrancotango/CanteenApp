@@ -40,8 +40,8 @@ class AccessRepository(val context: Context) {
     private val _currentScanCount = MutableStateFlow(0)
     val currentScanCount: StateFlow<Int> = _currentScanCount
 
-    // Real-time list of today's admitted users (resets at midnight via start-of-day timestamp)
-    val todayScans: Flow<List<ScanEvent>> = scanEventDao.getTodaySuccessfulScans(getStartOfDayTimestamp())
+    // Real-time list of ALL today's scans (SUCCESS, BONUS, DENIED) — resets at midnight
+    val todayScans: Flow<List<ScanEvent>> = scanEventDao.getTodayAllScans(getStartOfDayTimestamp())
 
     var totalEmployees: Int = 0
     var lastError: String? = null

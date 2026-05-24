@@ -4,6 +4,13 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.canteen.data.EmailConfig
+import com.example.canteen.work.DailyReportWorker
+import java.util.Calendar
+import java.util.concurrent.TimeUnit
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,6 +62,7 @@ class MainActivity : ComponentActivity() {
         repository = AccessRepository(applicationContext)
         firebaseRepo = FirebaseSyncRepository()
         firebaseRepo.startListening()
+        scheduleDailyReport()
 
         lifecycleScope.launch {
             repository.refreshWhitelist()
@@ -71,6 +79,28 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         firebaseRepo.stopListening()
     }
+
+    private fun scheduleDailyReport() {
+        val now = Calendar.getInstance()
+        val target = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, EmailConfig.SEND_HOUR)
+            set(Calendar.MINUTE, EmailConfig.SEND_MINUTE)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            if (before(now)) add(Calendar.DAY_OF_MONTH, 1)
+        }
+        val initialDelay = target.timeInMillis - now.timeInMillis
+
+        val request = PeriodicWorkRequestBuilder<DailyReportWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(initialDelay, TimeUnit.MILLISECONDS)
+            .build()
+
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            "daily_canteen_report",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            request
+        )
+    }
 }
 
 enum class Screen {
@@ -81,8 +111,7 @@ enum class Screen {
     TODAY_USERS
 }
 
-// Admin PIN - change this to whatever you want
-private const val ADMIN_PIN = "0000"
+private const val ADMIN_PIN = "6767"
 
 @Composable
 fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncRepository) {

@@ -19,6 +19,7 @@ interface ScanEventDao {
     @Query("SELECT COUNT(*) FROM scan_events WHERE result = 'BONUS' AND timestamp >= :startOfDay")
     suspend fun getBonusCountForToday(startOfDay: Long): Int
 
-    @Query("SELECT * FROM scan_events WHERE timestamp >= :startOfDay AND result IN ('SUCCESS', 'BONUS') ORDER BY timestamp DESC")
-    fun getTodaySuccessfulScans(startOfDay: Long): Flow<List<ScanEvent>>
+    // All events today (SUCCESS, BONUS, DENIED) — for the live Today's Users screen
+    @Query("SELECT * FROM scan_events WHERE timestamp >= :startOfDay ORDER BY timestamp DESC")
+    fun getTodayAllScans(startOfDay: Long): Flow<List<ScanEvent>>
 }

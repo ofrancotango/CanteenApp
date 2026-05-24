@@ -45,6 +45,9 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/NOTICE.md"
+            excludes += "/META-INF/LICENSE-notice.md"
         }
     }
 }
@@ -84,4 +87,11 @@ dependencies {
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-database-ktx")
+
+    // WorkManager (daily email scheduling)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // JavaMail for Android (automatic email sending)
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
 }

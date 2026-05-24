@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -37,8 +38,6 @@ fun ResultScreen(
         is VerificationResult.Failure -> ErrorBackground
     }
 
-    val textColor = White
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -54,20 +53,20 @@ fun ResultScreen(
                 is VerificationResult.Success -> "ENJOY YOUR MEAL"
                 is VerificationResult.Failure -> "DENIED"
             }
-            
+
             val detailsText = when (result) {
                 is VerificationResult.Success -> {
                     if (result.isFuzzyMatch) {
-                        "MATCH FOUND: ${result.matchedName.uppercase()}"
+                        result.matchedName.uppercase()
                     } else {
                         result.normalizedName.uppercase()
                     }
                 }
                 is VerificationResult.Failure -> {
                     when (result.reason) {
-                        VerificationResult.Failure.Reason.LIMIT_REACHED -> "Limit Reached"
-                        VerificationResult.Failure.Reason.UNKNOWN_USER -> "Result: UNKNOWN USER"
-                        VerificationResult.Failure.Reason.BLACK_LISTED -> "NOT ALLOWED: ${result.company ?: "Unknown Company"}"
+                        VerificationResult.Failure.Reason.LIMIT_REACHED  -> "Limit Reached"
+                        VerificationResult.Failure.Reason.UNKNOWN_USER   -> "Unknown User"
+                        VerificationResult.Failure.Reason.BLACK_LISTED   -> result.company ?: "Not Allowed"
                     }
                 }
             }
@@ -75,32 +74,32 @@ fun ResultScreen(
             Text(
                 text = titleText,
                 style = MaterialTheme.typography.displayLarge,
-                color = textColor,
+                color = White,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 text = detailsText,
-                style = MaterialTheme.typography.headlineMedium,
-                color = textColor,
+                style = MaterialTheme.typography.headlineSmall,
+                color = White.copy(alpha = 0.85f),
                 textAlign = TextAlign.Center
             )
-            
-            if (result is VerificationResult.Failure) {
-                 Spacer(modifier = Modifier.height(16.dp))
-                 Text(
-                     text = "Scanned: ${result.scannedName}",
-                     style = MaterialTheme.typography.bodyLarge,
-                     color = textColor.copy(alpha = 0.8f)
-                 )
+
+            if (result is VerificationResult.Failure && result.reason == VerificationResult.Failure.Reason.UNKNOWN_USER) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = result.scannedName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = White.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
             }
 
-            Spacer(modifier = Modifier.height(64.dp))
+            Spacer(modifier = Modifier.height(72.dp))
 
-            // Primary Button: NEXT
             Button(
                 onClick = onNextClick,
                 colors = ButtonDefaults.buttonColors(
@@ -109,32 +108,31 @@ fun ResultScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
-                shape = MaterialTheme.shapes.extraLarge
+                    .height(60.dp),
+                shape = MaterialTheme.shapes.medium,
+                elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
                 Text(
-                    text = "NEXT >",
-                    style = MaterialTheme.typography.titleLarge
+                    text = "NEXT",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Secondary Button: HOME
-            androidx.compose.material3.OutlinedButton(
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedButton(
                 onClick = onHomeClick,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = White
-                ),
-                border = androidx.compose.foundation.BorderStroke(2.dp, White),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = White),
+                border = androidx.compose.foundation.BorderStroke(1.dp, White.copy(alpha = 0.5f)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = MaterialTheme.shapes.large
+                    .height(52.dp),
+                shape = MaterialTheme.shapes.medium
             ) {
                 Text(
                     text = "HOME",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleSmall
                 )
             }
         }
