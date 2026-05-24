@@ -53,19 +53,15 @@ function HomeScreen({ nav }: { nav: (s: Screen) => void }) {
           <span>100%</span>
         </span>
       </div>
-
       {/* Header */}
       <div style={{ padding: "32px 28px 24px" }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
-          Streicher Group
-        </div>
+        <div style={{ fontSize: 11, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Max Streicher</div>
         <div style={{ fontSize: 34, fontWeight: 700, color: C.text, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
           Canteen
           <span style={{ color: C.accent }}>.</span>
         </div>
         <div style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>Access Control System</div>
       </div>
-
       {/* Counter card */}
       <div style={{ margin: "0 24px", background: C.surface, borderRadius: 20, padding: "20px 24px", border: `1px solid ${C.border}`, marginBottom: 20 }}>
         <div style={{ fontSize: 12, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Today's Entries</div>
@@ -82,7 +78,6 @@ function HomeScreen({ nav }: { nav: (s: Screen) => void }) {
           <span style={{ fontSize: 11, color: C.red }}>2 denied</span>
         </div>
       </div>
-
       {/* Main scan button */}
       <div style={{ padding: "0 24px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <button
@@ -104,7 +99,6 @@ function HomeScreen({ nav }: { nav: (s: Screen) => void }) {
           SCAN QR CODE
         </button>
       </div>
-
       {/* Nav items */}
       <div style={{ padding: "0 24px" }}>
         {[
