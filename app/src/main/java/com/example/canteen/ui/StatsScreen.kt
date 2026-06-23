@@ -1,6 +1,9 @@
 package com.example.canteen.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,36 +11,44 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.canteen.data.AccessRepository
 import com.example.canteen.data.db.DailyStats
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.example.canteen.ui.theme.AppAccent
+import com.example.canteen.ui.theme.AppAccentLight
+import com.example.canteen.ui.theme.AppBackground
+import com.example.canteen.ui.theme.AppBorder
+import com.example.canteen.ui.theme.AppMuted
+import com.example.canteen.ui.theme.AppSurface
+import com.example.canteen.ui.theme.AppText
+import com.example.canteen.ui.theme.AppWhite
+import com.example.canteen.ui.theme.SuccessGreen
+import com.example.canteen.ui.theme.ErrorRed
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(
     stats: Map<String, Any>,
@@ -46,109 +57,161 @@ fun StatsScreen(
     onBackClick: () -> Unit
 ) {
     var dailyHistory by remember { mutableStateOf<List<DailyStats>>(emptyList()) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        dailyHistory = repository.getDailyHistory()
-    }
+    LaunchedEffect(Unit) { dailyHistory = repository.getDailyHistory() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Statistics", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+    Column(modifier = Modifier.fillMaxSize().background(AppBackground)) {
+        // Custom top bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            IconButton(onClick = onBackClick) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AppSurface)
+                        .border(1.dp, AppBorder, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("\u2190", color = AppMuted, fontSize = 18.sp)
+                }
+            }
+            Column {
+                Text(
+                    text = "Statistics",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = AppText
                 )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
+                Text(
+                    text = "Last 30 days",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppMuted
+                )
+            }
+        }
+
         LazyColumn(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
         ) {
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+
+            // Today's stat cards
             item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Today",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    BigStatCard(
+                    StatCard(
                         label = "Total Scans",
                         value = stats["total_scans_today"]?.toString() ?: "0",
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        gradient = listOf(AppAccent, AppAccentLight)
                     )
-                    BigStatCard(
+                    StatCard(
                         label = "Unique Users",
                         value = stats["unique_users_served"]?.toString() ?: "0",
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        gradient = listOf(AppAccent, AppAccentLight)
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                BigStatCard(
+                StatCard(
                     label = "Expected Attendance",
                     value = expectedAttendance.toString(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    gradient = listOf(AppAccent, AppAccentLight)
                 )
                 Spacer(modifier = Modifier.height(24.dp))
-
-                val context = androidx.compose.ui.platform.LocalContext.current
-                val scope = androidx.compose.runtime.rememberCoroutineScope()
-
-                OutlinedButton(
-                    onClick = {
-                        scope.launch(Dispatchers.Main) {
-                            try {
-                                val csvData = repository.exportLogs()
-                                val filename = "scan_logs_${System.currentTimeMillis()}.csv"
-                                val file = java.io.File(context.cacheDir, filename)
-                                file.writeText(csvData)
-                                val uri = androidx.core.content.FileProvider.getUriForFile(
-                                    context, "${context.packageName}.provider", file
-                                )
-                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "text/csv"
-                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(android.content.Intent.createChooser(intent, "Export Logs"))
-                            } catch (e: Exception) {
-                                android.widget.Toast.makeText(context, "Export failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Text("Export Logs (CSV)")
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-                Text(
-                    text = "History",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Divider(color = MaterialTheme.colorScheme.outline)
             }
 
+            // Export button
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(AppSurface)
+                        .border(1.dp, AppBorder, RoundedCornerShape(14.dp))
+                        .clickable {
+                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                try {
+                                    val csvData = repository.exportLogs()
+                                    val filename = "scan_logs_${System.currentTimeMillis()}.csv"
+                                    val file = java.io.File(context.cacheDir, filename)
+                                    file.writeText(csvData)
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context, "${context.packageName}.provider", file
+                                    )
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/csv"
+                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(intent, "Export Logs"))
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Export failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "\u2193",
+                            fontSize = 20.sp,
+                            color = AppAccent
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Export Logs",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AppText
+                            )
+                            Text(
+                                text = "Download CSV file",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppMuted
+                            )
+                        }
+                        Text(
+                            text = "CSV",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppAccent
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            // History header
+            item {
+                Text(
+                    text = "HISTORY",
+                    style = MaterialTheme.typography.labelSmall,
+                    letterSpacing = 1.5.sp,
+                    color = AppMuted
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // History items
             items(dailyHistory) { item ->
-                MinimalHistoryItem(item)
-                Divider(color = MaterialTheme.colorScheme.outline)
+                HistoryRow(item)
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item { Spacer(modifier = Modifier.height(32.dp)) }
@@ -157,61 +220,87 @@ fun StatsScreen(
 }
 
 @Composable
-fun BigStatCard(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.padding(vertical = 8.dp)) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-        )
+private fun StatCard(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    gradient: List<androidx.compose.ui.graphics.Color>
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = AppSurface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppBorder)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Brush.horizontalGradient(gradient))
+                .padding(vertical = 2.dp)
+        ) {
+            // gradient line on top
+        }
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = AppText
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = AppMuted
+            )
+        }
     }
 }
 
 @Composable
-fun StatItem(label: String, value: String) {
-    Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.secondary
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-fun MinimalHistoryItem(stats: DailyStats) {
-    Row(
+private fun HistoryRow(stats: DailyStats) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .clip(RoundedCornerShape(12.dp))
+            .background(AppSurface)
+            .border(1.dp, AppBorder, RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
-        Text(
-            text = stats.date,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = "${stats.totalScans} scans · ${stats.uniqueUsers} unique",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = stats.date,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppText
+                )
+                Text(
+                    text = "${stats.uniqueUsers} unique users",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppMuted
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppAccent.copy(alpha = 0.08f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "${stats.totalScans} scans",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppAccent,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
 }
 
-@Composable
-fun HistoryItem(stats: DailyStats) {
-    MinimalHistoryItem(stats)
-}
+private fun Modifier.clickable(onClick: () -> Unit) = this.then(
+    androidx.compose.foundation.clickable(onClick = onClick)
+)

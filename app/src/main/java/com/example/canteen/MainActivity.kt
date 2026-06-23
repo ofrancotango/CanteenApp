@@ -181,6 +181,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
             HomeScreen(
                 scansToday = currentScans,
                 scanStatus = "$scanStatus (Last Err: ${repository.lastError ?: "None"})",
+                expectedAttendance = repository.getExpectedAttendance(),
                 onScanClick = { currentScreen = Screen.SCANNER },
                 onStatsClick = { currentScreen = Screen.STATS },
                 onTodayUsersClick = { currentScreen = Screen.TODAY_USERS },

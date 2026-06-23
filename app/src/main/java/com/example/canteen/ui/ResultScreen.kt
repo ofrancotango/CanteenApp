@@ -9,23 +9,33 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.canteen.data.VerificationResult
-import com.example.canteen.ui.theme.Black
+import com.example.canteen.ui.theme.AppAccent
+import com.example.canteen.ui.theme.AppBorder
+import com.example.canteen.ui.theme.AppMuted
+import com.example.canteen.ui.theme.AppText
+import com.example.canteen.ui.theme.AppWhite
 import com.example.canteen.ui.theme.ErrorBackground
+import com.example.canteen.ui.theme.ErrorRed
 import com.example.canteen.ui.theme.SuccessBackground
-import com.example.canteen.ui.theme.White
+import com.example.canteen.ui.theme.SuccessGreen
 
 @Composable
 fun ResultScreen(
@@ -33,15 +43,30 @@ fun ResultScreen(
     onNextClick: () -> Unit,
     onHomeClick: () -> Unit
 ) {
-    val backgroundColor = when (result) {
-        is VerificationResult.Success -> SuccessBackground
-        is VerificationResult.Failure -> ErrorBackground
+    val isSuccess = result is VerificationResult.Success
+    val bgColor = if (isSuccess) SuccessBackground else ErrorBackground
+    val accentColor = if (isSuccess) SuccessGreen else ErrorRed
+    val title = if (isSuccess) "ENJOY YOUR MEAL" else "ACCESS DENIED"
+    val subtitle = if (isSuccess) "Accesso consentito" else "Accesso negato"
+
+    val detailsText = when (result) {
+        is VerificationResult.Success -> {
+            val name = if (result.isFuzzyMatch) result.matchedName else result.normalizedName
+            name
+        }
+        is VerificationResult.Failure -> {
+            when (result.reason) {
+                VerificationResult.Failure.Reason.LIMIT_REACHED -> "Limit reached for today"
+                VerificationResult.Failure.Reason.UNKNOWN_USER -> "Not whitelisted"
+                VerificationResult.Failure.Reason.BLACK_LISTED -> result.company ?: "Not Allowed"
+            }
+        }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor)
+            .background(bgColor)
             .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -49,92 +74,131 @@ fun ResultScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            val titleText = when (result) {
-                is VerificationResult.Success -> "ENJOY YOUR MEAL"
-                is VerificationResult.Failure -> "DENIED"
+            // Big icon circle
+            Box(
+                modifier = Modifier
+                    .size(110.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.1f))
+                    .border(2.dp, accentColor.copy(alpha = 0.25f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isSuccess) "\u2713" else "\u2715",
+                    fontSize = 54.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = accentColor
+                )
             }
 
-            val detailsText = when (result) {
-                is VerificationResult.Success -> {
-                    if (result.isFuzzyMatch) {
-                        result.matchedName.uppercase()
-                    } else {
-                        result.normalizedName.uppercase()
-                    }
-                }
-                is VerificationResult.Failure -> {
-                    when (result.reason) {
-                        VerificationResult.Failure.Reason.LIMIT_REACHED  -> "Limit Reached"
-                        VerificationResult.Failure.Reason.UNKNOWN_USER   -> "Unknown User"
-                        VerificationResult.Failure.Reason.BLACK_LISTED   -> result.company ?: "Not Allowed"
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(36.dp))
 
             Text(
-                text = titleText,
-                style = MaterialTheme.typography.displayLarge,
-                color = White,
-                fontWeight = FontWeight.Bold,
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                letterSpacing = 2.4.sp,
+                color = accentColor.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp),
+                fontWeight = FontWeight.ExtraBold,
+                color = AppText,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = detailsText,
-                style = MaterialTheme.typography.headlineSmall,
-                color = White.copy(alpha = 0.85f),
+                style = MaterialTheme.typography.bodyLarge,
+                color = AppMuted,
                 textAlign = TextAlign.Center
             )
+
+            if (isSuccess && result is VerificationResult.Success) {
+                Spacer(modifier = Modifier.height(32.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(accentColor.copy(alpha = 0.08f))
+                        .border(1.dp, accentColor.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Entry #\u00b7 ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accentColor.copy(alpha = 0.7f)
+                    )
+                }
+            }
 
             if (result is VerificationResult.Failure && result.reason == VerificationResult.Failure.Reason.UNKNOWN_USER) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = result.scannedName,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = White.copy(alpha = 0.6f),
+                    color = AppMuted.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(72.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // SCAN NEXT BADGE
             Button(
                 onClick = onNextClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = White,
-                    contentColor = Black
+                    containerColor = accentColor,
+                    contentColor = AppWhite
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(60.dp),
-                shape = MaterialTheme.shapes.medium,
-                elevation = ButtonDefaults.buttonElevation(0.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    text = "NEXT",
+                    text = "SCAN NEXT BADGE",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            OutlinedButton(
+            TextButton(
                 onClick = onHomeClick,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = White),
-                border = androidx.compose.foundation.BorderStroke(1.dp, White.copy(alpha = 0.5f)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                shape = MaterialTheme.shapes.medium
+                    .height(48.dp),
+                colors = ButtonDefaults.textButtonColors(contentColor = AppMuted)
             ) {
                 Text(
-                    text = "HOME",
-                    style = MaterialTheme.typography.titleSmall
+                    text = "\u2190 Back to Home",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
     }
 }
+
+private fun Modifier.border(width: androidx.compose.ui.unit.Dp, color: Color, shape: androidx.compose.ui.graphics.Shape) = this.then(
+    androidx.compose.foundation.BorderStroke(width, color).let { stroke ->
+        androidx.compose.ui.draw.drawBehind {
+            drawRoundRect(
+                color = stroke.brush,
+                size = size,
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(110f, 110f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width.toPx())
+            )
+        }
+    }
+)
