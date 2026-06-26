@@ -1,6 +1,7 @@
 package com.example.canteen.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -190,15 +191,3 @@ fun ResultScreen(
     }
 }
 
-private fun Modifier.border(width: androidx.compose.ui.unit.Dp, color: Color, shape: androidx.compose.ui.graphics.Shape) = this.then(
-    androidx.compose.foundation.BorderStroke(width, color).let { stroke ->
-        androidx.compose.ui.draw.drawBehind {
-            drawRoundRect(
-                color = stroke.brush,
-                size = size,
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(110f, 110f),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width.toPx())
-            )
-        }
-    }
-)

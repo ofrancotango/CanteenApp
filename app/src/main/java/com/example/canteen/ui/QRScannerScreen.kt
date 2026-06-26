@@ -11,6 +11,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -230,10 +231,3 @@ fun QRScannerScreen(
     }
 }
 
-private fun Modifier.border(width: androidx.compose.ui.unit.Dp, color: Color, shape: androidx.compose.ui.graphics.Shape) = this.then(
-    androidx.compose.foundation.BorderStroke(width, color).let { _ ->
-        androidx.compose.ui.draw.drawBehind {
-            // simplified border
-        }
-    }
-)
