@@ -68,6 +68,8 @@ fun HomeScreen(
     scansToday: Int,
     scanStatus: String,
     expectedAttendance: Int,
+    admittedCount: Int,
+    deniedCount: Int,
     onScanClick: () -> Unit,
     onStatsClick: () -> Unit,
     onTodayUsersClick: () -> Unit,
@@ -95,6 +97,7 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(AppBackground)
             .padding(horizontal = 24.dp)
             .verticalScroll(rememberScrollState())
     ) {
@@ -202,8 +205,30 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = "\u2713 admitted", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
-                    Text(text = "\u2715 denied", style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "\u2713 admitted", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(SuccessGreen.copy(alpha = 0.1f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(text = "$admittedCount", style = MaterialTheme.typography.labelSmall, color = SuccessGreen, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "\u2715 denied", style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(ErrorRed.copy(alpha = 0.1f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(text = "$deniedCount", style = MaterialTheme.typography.labelSmall, color = ErrorRed, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }

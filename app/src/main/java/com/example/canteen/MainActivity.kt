@@ -207,12 +207,17 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         return
     }
 
+    val todayAdmittedCount = todayLocalScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
+    val todayDeniedCount = todayLocalScans.count { it.result == "DENIED" }
+
     when (currentScreen) {
         Screen.HOME -> {
             HomeScreen(
                 scansToday = currentScans,
                 scanStatus = "$scanStatus (Last Err: ${repository.lastError ?: "None"})",
                 expectedAttendance = repository.getExpectedAttendance(),
+                admittedCount = todayAdmittedCount,
+                deniedCount = todayDeniedCount,
                 onScanClick = { currentScreen = Screen.SCANNER },
                 onStatsClick = { currentScreen = Screen.STATS },
                 onTodayUsersClick = { currentScreen = Screen.TODAY_USERS },

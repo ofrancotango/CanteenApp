@@ -126,7 +126,8 @@ fun QRScannerScreen(
             if (hasCameraPermission) {
                 Box(
                     modifier = Modifier
-                        .size(260.dp)
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
                         .clip(RoundedCornerShape(24.dp))
                         .background(AppBackground)
                         .border(1.dp, AppBorder, RoundedCornerShape(24.dp)),
