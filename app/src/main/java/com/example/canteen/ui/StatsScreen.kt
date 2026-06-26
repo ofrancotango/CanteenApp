@@ -3,6 +3,7 @@ package com.example.canteen.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -301,7 +302,3 @@ private fun HistoryRow(stats: DailyStats) {
         }
     }
 }
-
-private fun Modifier.clickable(onClick: () -> Unit) = this.then(
-    androidx.compose.foundation.clickable(onClick = onClick)
-)
