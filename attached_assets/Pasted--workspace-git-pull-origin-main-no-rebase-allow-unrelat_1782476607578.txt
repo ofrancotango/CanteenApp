@@ -1,0 +1,33 @@
+~/workspace$ git pull origin main --no-rebase --allow-unrelated-histories
+From https://github.com/ofrancotango/CanteenApp
+ * branch            main       -> FETCH_HEAD
+Auto-merging .replit
+CONFLICT (add/add): Merge conflict in .replit
+warning: Cannot merge binary files: app/.DS_Store (HEAD vs. 04968b729065256c4eb2d8b52a26bd67ffaf7f3f)
+Auto-merging app/.DS_Store
+CONFLICT (add/add): Merge conflict in app/.DS_Store
+warning: Cannot merge binary files: app/src/main/assets/.DS_Store (HEAD vs. 04968b729065256c4eb2d8b52a26bd67ffaf7f3f)
+Auto-merging app/src/main/assets/.DS_Store
+CONFLICT (add/add): Merge conflict in app/src/main/assets/.DS_Store
+warning: Cannot merge binary files: app/src/main/java/com/example/canteen/.DS_Store (HEAD vs. 04968b729065256c4eb2d8b52a26bd67ffaf7f3f)
+Auto-merging app/src/main/java/com/example/canteen/.DS_Store
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/.DS_Store
+Auto-merging app/src/main/java/com/example/canteen/MainActivity.kt
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/MainActivity.kt
+Auto-merging app/src/main/java/com/example/canteen/ui/HomeScreen.kt
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/ui/HomeScreen.kt
+Auto-merging app/src/main/java/com/example/canteen/ui/QRScannerScreen.kt
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/ui/QRScannerScreen.kt
+Auto-merging app/src/main/java/com/example/canteen/ui/ResultScreen.kt
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/ui/ResultScreen.kt
+Auto-merging app/src/main/java/com/example/canteen/ui/StatsScreen.kt
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/ui/StatsScreen.kt
+Auto-merging app/src/main/java/com/example/canteen/ui/TodayUsersScreen.kt
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/ui/TodayUsersScreen.kt
+Auto-merging app/src/main/java/com/example/canteen/ui/theme/Color.kt
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/ui/theme/Color.kt
+Auto-merging app/src/main/java/com/example/canteen/ui/theme/Theme.kt
+CONFLICT (add/add): Merge conflict in app/src/main/java/com/example/canteen/ui/theme/Theme.kt
+CONFLICT (add/add): Merge conflict in gradlew
+Automatic merge failed; fix conflicts and then commit the result.
+~/workspace$ 
