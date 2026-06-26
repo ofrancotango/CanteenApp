@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,12 +43,15 @@ import androidx.lifecycle.lifecycleScope
 import com.example.canteen.data.AccessRepository
 import com.example.canteen.data.FirebaseSyncRepository
 import com.example.canteen.data.VerificationResult
+import com.example.canteen.ui.CompanyRulesScreen
 import com.example.canteen.ui.HomeScreen
 import com.example.canteen.ui.QRScannerScreen
 import com.example.canteen.ui.ResultScreen
 import com.example.canteen.ui.ServiceDisabledScreen
 import com.example.canteen.ui.StatsScreen
 import com.example.canteen.ui.TodayUsersScreen
+import com.example.canteen.ui.WhitelistManagerScreen
+import com.example.canteen.ui.theme.AppAccent
 import com.example.canteen.ui.theme.CanteenTheme
 import kotlinx.coroutines.launch
 
@@ -108,7 +112,9 @@ enum class Screen {
     SCANNER,
     RESULT,
     STATS,
-    TODAY_USERS
+    TODAY_USERS,
+    WHITELIST_MANAGER,
+    COMPANY_RULES
 }
 
 private const val ADMIN_PIN = "6767"
@@ -132,8 +138,21 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     val currentScans by repository.currentScanCount.collectAsState(initial = 0)
     val isAppEnabled by firebaseRepo.isAppEnabled.collectAsState()
     val cloudScans by firebaseRepo.todayCloudScans.collectAsState()
-
     val todayLocalScans by repository.todayScans.collectAsState(initial = emptyList())
+
+    // Firebase-synced rules
+    val allowedCompanies by firebaseRepo.allowedCompanies.collectAsState()
+    val forbiddenCompanies by firebaseRepo.forbiddenCompanies.collectAsState()
+    val forbiddenEmployees by firebaseRepo.forbiddenEmployees.collectAsState()
+    val manualEmployees by firebaseRepo.manualEmployees.collectAsState()
+
+    // Sync Firebase rules into repository when they change
+    LaunchedEffect(allowedCompanies, forbiddenCompanies, forbiddenEmployees) {
+        repository.setFirebaseRules(allowedCompanies, forbiddenCompanies, forbiddenEmployees)
+    }
+    LaunchedEffect(manualEmployees) {
+        repository.applyFirebaseManualEmployees(manualEmployees)
+    }
 
     var showAdminDialog by remember { mutableStateOf(false) }
     var adminAuthenticated by remember { mutableStateOf(false) }
@@ -160,6 +179,18 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 }
             },
             onToggleApp = { firebaseRepo.setAppEnabled(it) },
+            onOpenWhitelist = {
+                showAdminDialog = false
+                adminAuthenticated = false
+                pinInput = ""
+                currentScreen = Screen.WHITELIST_MANAGER
+            },
+            onOpenCompanyRules = {
+                showAdminDialog = false
+                adminAuthenticated = false
+                pinInput = ""
+                currentScreen = Screen.COMPANY_RULES
+            },
             onDismiss = {
                 showAdminDialog = false
                 adminAuthenticated = false
@@ -186,9 +217,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 onStatsClick = { currentScreen = Screen.STATS },
                 onTodayUsersClick = { currentScreen = Screen.TODAY_USERS },
                 onRefreshClick = {
-                    scope.launch {
-                        repository.refreshWhitelist()
-                    }
+                    scope.launch { repository.refreshWhitelist() }
                 },
                 onAdminClick = { showAdminDialog = true }
             )
@@ -243,6 +272,29 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 onBackClick = { currentScreen = Screen.HOME }
             )
         }
+        Screen.WHITELIST_MANAGER -> {
+            WhitelistManagerScreen(
+                employees = manualEmployees,
+                onAddEmployee = { name, company ->
+                    firebaseRepo.addManualEmployee(name, company)
+                },
+                onRemoveEmployee = { key ->
+                    firebaseRepo.removeManualEmployee(key)
+                },
+                onBackClick = { currentScreen = Screen.HOME }
+            )
+        }
+        Screen.COMPANY_RULES -> {
+            CompanyRulesScreen(
+                allowedCompanies = allowedCompanies,
+                forbiddenCompanies = forbiddenCompanies,
+                onAddAllowed = { firebaseRepo.addAllowedCompany(it) },
+                onRemoveAllowed = { firebaseRepo.removeAllowedCompany(it) },
+                onAddForbidden = { firebaseRepo.addForbiddenCompany(it) },
+                onRemoveForbidden = { firebaseRepo.removeForbiddenCompany(it) },
+                onBackClick = { currentScreen = Screen.HOME }
+            )
+        }
     }
 }
 
@@ -255,6 +307,8 @@ private fun AdminDialog(
     onPinChange: (String) -> Unit,
     onPinSubmit: () -> Unit,
     onToggleApp: (Boolean) -> Unit,
+    onOpenWhitelist: () -> Unit,
+    onOpenCompanyRules: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -280,7 +334,8 @@ private fun AdminDialog(
                     )
                 }
             } else {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // App Enable/Disable toggle
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -302,30 +357,43 @@ private fun AdminDialog(
                             onCheckedChange = { onToggleApp(it) }
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Toggle the switch to enable or disable the app on ALL devices instantly.",
+                        text = "Toggle to enable or disable the app on ALL devices instantly.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Whitelist Manager button
+                    Button(
+                        onClick = onOpenWhitelist,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                    ) {
+                        Text("\uD83D\uDC64  Gestisci Whitelist Manuale")
+                    }
+
+                    // Company Rules button
+                    Button(
+                        onClick = onOpenCompanyRules,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
+                    ) {
+                        Text("\uD83C\uDFE2  Gestisci Regole Aziende")
+                    }
                 }
             }
         },
         confirmButton = {
             if (!authenticated) {
-                Button(onClick = onPinSubmit) {
-                    Text("Confirm")
-                }
+                Button(onClick = onPinSubmit) { Text("Confirm") }
             } else {
-                TextButton(onClick = onDismiss) {
-                    Text("Close")
-                }
+                TextButton(onClick = onDismiss) { Text("Close") }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }

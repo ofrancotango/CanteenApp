@@ -46,21 +46,30 @@ class AccessRepository(val context: Context) {
     var totalEmployees: Int = 0
     var lastError: String? = null
 
-    // Allowed Companies (Case Insensitive)
-    private val ALLOWED_COMPANIES = setOf(
-        "EOS", "Max Streicher", "PMM", "Admar", "Adotech", 
-        "Cargomet", "Kotloinwest", "Liliana", "OMV", "RMLI", "Strong", "Ado Tech", "Delta"
-    )
+    // Rules — overrideable from Firebase (set via setFirebaseRules)
+    private var ALLOWED_COMPANIES: Set<String> = FirebaseSyncRepository.DEFAULT_ALLOWED_COMPANIES
+    private var FORBIDDEN_COMPANIES: Set<String> = FirebaseSyncRepository.DEFAULT_FORBIDDEN_COMPANIES
+    private var FORBIDDEN_EMPLOYEES: Set<String> = FirebaseSyncRepository.DEFAULT_FORBIDDEN_EMPLOYEES
 
-    // Forbidden Companies (Blacklist)
-    private val FORBIDDEN_COMPANIES = setOf(
-        "Cakici", "DK build", "Galiv", "gts", "ms management", "polprep", "workers4u"
-    )
+    fun setFirebaseRules(
+        allowed: Set<String>,
+        forbidden: Set<String>,
+        forbiddenEmployees: Set<String>
+    ) {
+        if (allowed.isNotEmpty()) ALLOWED_COMPANIES = allowed
+        if (forbidden.isNotEmpty()) FORBIDDEN_COMPANIES = forbidden
+        if (forbiddenEmployees.isNotEmpty()) FORBIDDEN_EMPLOYEES = forbiddenEmployees
+    }
 
-    // Forbidden Employees (Blacklist)
-    private val FORBIDDEN_EMPLOYEES = setOf(
-        "Eugene jansen", "Guilliano pahawakan", "Kevin santiago", "Zaza arabuli", "Aleksandre khanjaladze"
-    )
+    fun applyFirebaseManualEmployees(employees: List<FirebaseEmployee>) {
+        val current = whitelist.toMutableMap()
+        employees.forEach { fe ->
+            val emp = Employee(fe.name, fe.company, fe.name.split(" ").firstOrNull(), fe.name.split(" ").lastOrNull())
+            val norm = com.example.canteen.utils.StringNormalizer.normalize(fe.name)
+            if (norm.isNotBlank()) current[norm] = emp
+        }
+        whitelist = current
+    }
     
     // Bonus config
     private val DAILY_BONUS_THRESHOLD = 25
