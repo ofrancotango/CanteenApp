@@ -78,7 +78,9 @@ fun QRScannerScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(AppBackground)) {
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .background(AppBackground)) {
         // Top bar
         Box(
             modifier = Modifier
@@ -126,8 +128,7 @@ fun QRScannerScreen(
             if (hasCameraPermission) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(380.dp)
+                        .fillMaxSize()
                         .clip(RoundedCornerShape(24.dp))
                         .background(AppBackground)
                         .border(1.dp, AppBorder, RoundedCornerShape(24.dp)),
@@ -171,20 +172,32 @@ fun QRScannerScreen(
                     Box(modifier = Modifier.fillMaxSize()) {
                         androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxSize()) {
                             androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
-                                Box(modifier = Modifier.fillMaxWidth().height(28.dp).padding(12.dp)
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(28.dp)
+                                    .padding(12.dp)
                                     .border(2.dp, AppAccent, RoundedCornerShape(topStart = 3.dp))
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
-                                Box(modifier = Modifier.fillMaxWidth().height(28.dp).padding(12.dp)
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(28.dp)
+                                    .padding(12.dp)
                                     .border(2.dp, AppAccent, RoundedCornerShape(bottomStart = 3.dp))
                                 )
                             }
                             androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
-                                Box(modifier = Modifier.fillMaxWidth().height(28.dp).padding(12.dp)
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(28.dp)
+                                    .padding(12.dp)
                                     .border(2.dp, AppAccent, RoundedCornerShape(topEnd = 3.dp))
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
-                                Box(modifier = Modifier.fillMaxWidth().height(28.dp).padding(12.dp)
+                                Box(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(28.dp)
+                                    .padding(12.dp)
                                     .border(2.dp, AppAccent, RoundedCornerShape(bottomEnd = 3.dp))
                                 )
                             }
