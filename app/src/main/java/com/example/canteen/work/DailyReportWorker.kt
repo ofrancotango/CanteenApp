@@ -39,7 +39,12 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
             val endOfDay = startOfDay + 24 * 60 * 60 * 1000L
 
             val events = dao.getEventsByDate(startOfDay, endOfDay)
-            if (events.isEmpty()) return Result.success()
+            if (events.isEmpty()) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    android.widget.Toast.makeText(applicationContext, "Nessuna scansione oggi, niente da inviare.", android.widget.Toast.LENGTH_LONG).show()
+                }
+                return Result.success()
+            }
 
             val dateStr = SimpleDateFormat("EEEE, MMMM dd yyyy", Locale.ENGLISH).format(Date(startOfDay))
             val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -101,9 +106,15 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
 </body></html>""".trimIndent()
 
             sendEmail("Canteen Report – $dateStr", html)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                android.widget.Toast.makeText(applicationContext, "Mail inviata con successo!", android.widget.Toast.LENGTH_LONG).show()
+            }
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                android.widget.Toast.makeText(applicationContext, "Errore invio mail: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            }
             Result.retry()
         }
     }
