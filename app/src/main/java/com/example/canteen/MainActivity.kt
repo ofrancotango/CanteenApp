@@ -5,6 +5,7 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.canteen.data.EmailConfig
@@ -191,6 +192,10 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 pinInput = ""
                 currentScreen = Screen.COMPANY_RULES
             },
+            onSendTestEmail = {
+                val request = OneTimeWorkRequestBuilder<DailyReportWorker>().build()
+                WorkManager.getInstance(applicationContext).enqueue(request)
+            },
             onDismiss = {
                 showAdminDialog = false
                 adminAuthenticated = false
@@ -314,6 +319,7 @@ private fun AdminDialog(
     onToggleApp: (Boolean) -> Unit,
     onOpenWhitelist: () -> Unit,
     onOpenCompanyRules: () -> Unit,
+    onSendTestEmail: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -387,6 +393,22 @@ private fun AdminDialog(
                     ) {
                         Text("\uD83C\uDFE2  Gestisci Regole Aziende")
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Test Email button
+                    Button(
+                        onClick = onSendTestEmail,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF10B981))
+                    ) {
+                        Text("\u2709\uFE0F  Invia Mail Test")
+                    }
+                    Text(
+                        text = "Invia subito la mail di report per verificare che funzioni.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
                 }
             }
         },
