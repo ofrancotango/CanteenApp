@@ -195,6 +195,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
             onSendTestEmail = {
                 val request = OneTimeWorkRequestBuilder<DailyReportWorker>().build()
                 WorkManager.getInstance(context).enqueue(request)
+                android.widget.Toast.makeText(context, "Mail in invio...", android.widget.Toast.LENGTH_SHORT).show()
             },
             onDismiss = {
                 showAdminDialog = false
