@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.workDataOf
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.canteen.data.EmailConfig
@@ -182,7 +183,9 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 currentScreen = Screen.COMPANY_RULES
             },
             onSendTestEmail = {
-                val request = OneTimeWorkRequestBuilder<DailyReportWorker>().build()
+                val request = OneTimeWorkRequestBuilder<DailyReportWorker>()
+                    .setInputData(workDataOf("force_send" to true))
+                    .build()
                 WorkManager.getInstance(context).enqueue(request)
                 android.widget.Toast.makeText(context, "Mail in invio...", android.widget.Toast.LENGTH_SHORT).show()
             },
