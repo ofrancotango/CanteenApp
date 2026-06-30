@@ -203,7 +203,9 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                         if (events.isEmpty()) {
                             android.widget.Toast.makeText(context, "Nessuna scansione oggi, niente da inviare.", android.widget.Toast.LENGTH_LONG).show()
                         } else {
-                            EmailSender.sendDailyReport(context, events)
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                EmailSender.sendDailyReport(context, events)
+                            }
                             android.widget.Toast.makeText(context, "Mail inviata con successo!", android.widget.Toast.LENGTH_LONG).show()
                         }
                     } catch (e: Exception) {
