@@ -132,6 +132,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     val isAppEnabled by firebaseRepo.isAppEnabled.collectAsState()
     val cloudScans by firebaseRepo.todayCloudScans.collectAsState()
     val todayLocalScans by repository.todayScans.collectAsState(initial = emptyList())
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Firebase-synced rules
     val allowedCompanies by firebaseRepo.allowedCompanies.collectAsState()
@@ -185,8 +186,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 currentScreen = Screen.COMPANY_RULES
             },
             onSendTestEmail = {
-                val scope = androidx.compose.runtime.rememberCoroutineScope()
-                scope.launch {
+                coroutineScope.launch {
                     try {
                         android.widget.Toast.makeText(context, "Mail in invio...", android.widget.Toast.LENGTH_SHORT).show()
                         val db = AppDatabase.getDatabase(context)
