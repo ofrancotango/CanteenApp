@@ -56,6 +56,8 @@ import com.example.canteen.ui.WhitelistManagerScreen
 import com.example.canteen.ui.theme.AppAccent
 import com.example.canteen.ui.theme.CanteenTheme
 import kotlinx.coroutines.launch
+import com.example.canteen.data.db.AppDatabase
+import com.example.canteen.work.EmailSender
 
 class MainActivity : ComponentActivity() {
 
@@ -183,11 +185,31 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 currentScreen = Screen.COMPANY_RULES
             },
             onSendTestEmail = {
-                val request = OneTimeWorkRequestBuilder<DailyReportWorker>()
-                    .setInputData(workDataOf("force_send" to true))
-                    .build()
-                WorkManager.getInstance(context).enqueue(request)
-                android.widget.Toast.makeText(context, "Mail in invio...", android.widget.Toast.LENGTH_SHORT).show()
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                scope.launch {
+                    try {
+                        android.widget.Toast.makeText(context, "Mail in invio...", android.widget.Toast.LENGTH_SHORT).show()
+                        val db = AppDatabase.getDatabase(context)
+                        val dao = db.scanEventDao()
+                        val calendar = java.util.Calendar.getInstance().apply {
+                            set(java.util.Calendar.HOUR_OF_DAY, 0)
+                            set(java.util.Calendar.MINUTE, 0)
+                            set(java.util.Calendar.SECOND, 0)
+                            set(java.util.Calendar.MILLISECOND, 0)
+                        }
+                        val start = calendar.timeInMillis
+                        val end = start + 24 * 60 * 60 * 1000L
+                        val events = dao.getEventsByDate(start, end)
+                        if (events.isEmpty()) {
+                            android.widget.Toast.makeText(context, "Nessuna scansione oggi, niente da inviare.", android.widget.Toast.LENGTH_LONG).show()
+                        } else {
+                            EmailSender.sendDailyReport(context, events)
+                            android.widget.Toast.makeText(context, "Mail inviata con successo!", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    } catch (e: Exception) {
+                        android.widget.Toast.makeText(context, "Errore invio mail: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
             },
             onDismiss = {
                 showAdminDialog = false
