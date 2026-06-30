@@ -1,6 +1,7 @@
 package com.example.canteen.work
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.canteen.data.EmailConfig
@@ -22,8 +23,29 @@ import javax.mail.internet.MimeMultipart
 
 class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
+    private fun getPrefs(): SharedPreferences = applicationContext.getSharedPreferences("canteen_email", Context.MODE_PRIVATE)
+
+    private fun isAlreadySentToday(): Boolean {
+        val prefs = getPrefs()
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        return prefs.getString("last_sent", "") == today
+    }
+
+    private fun markSent() {
+        val prefs = getPrefs()
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        prefs.edit().putString("last_sent", today).apply()
+    }
+
+    private fun isAfterSendTime(): Boolean {
+        val now = Calendar.getInstance()
+        return now.get(Calendar.HOUR_OF_DAY) >= EmailConfig.SEND_HOUR
+    }
+
     override suspend fun doWork(): Result {
         if (EmailConfig.SENDER_EMAIL == "your-gmail@gmail.com") return Result.success()
+        if (!isAfterSendTime()) return Result.success()
+        if (isAlreadySentToday()) return Result.success()
 
         return try {
             val db = AppDatabase.getDatabase(applicationContext)
@@ -39,12 +61,7 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
             val endOfDay = startOfDay + 24 * 60 * 60 * 1000L
 
             val events = dao.getEventsByDate(startOfDay, endOfDay)
-            if (events.isEmpty()) {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    android.widget.Toast.makeText(applicationContext, "Nessuna scansione oggi, niente da inviare.", android.widget.Toast.LENGTH_LONG).show()
-                }
-                return Result.success()
-            }
+            if (events.isEmpty()) return Result.success()
 
             val dateStr = SimpleDateFormat("EEEE, MMMM dd yyyy", Locale.ENGLISH).format(Date(startOfDay))
             val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -106,6 +123,7 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
 </body></html>""".trimIndent()
 
             sendEmail("Canteen Report – $dateStr", html)
+            markSent()
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 android.widget.Toast.makeText(applicationContext, "Mail inviata con successo!", android.widget.Toast.LENGTH_LONG).show()
             }
