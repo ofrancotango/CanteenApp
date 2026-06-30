@@ -44,8 +44,9 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     override suspend fun doWork(): Result {
         if (EmailConfig.SENDER_EMAIL == "your-gmail@gmail.com") return Result.success()
-        if (!isAfterSendTime()) return Result.success()
-        if (isAlreadySentToday()) return Result.success()
+        val forceSend = inputData.getBoolean("force_send", false)
+        if (!forceSend && !isAfterSendTime()) return Result.success()
+        if (!forceSend && isAlreadySentToday()) return Result.success()
 
         return try {
             val db = AppDatabase.getDatabase(applicationContext)
