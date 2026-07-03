@@ -43,6 +43,11 @@ class AccessRepository(val context: Context) {
     // Real-time list of ALL today's scans — SQLite recalculates "start of day" every refresh
     val todayScans: Flow<List<ScanEvent>> = scanEventDao.getTodayAllScans()
 
+    // Real-time daily counts from database — single source of truth
+    val todayAdmittedCount: Flow<Int> = scanEventDao.getTodayAdmittedCount()
+    val todayDeniedCount: Flow<Int> = scanEventDao.getTodayDeniedCount()
+    val todayTotalCount: Flow<Int> = scanEventDao.getTodayTotalCount()
+
     var totalEmployees: Int = 0
     var lastError: String? = null
 
@@ -90,11 +95,14 @@ class AccessRepository(val context: Context) {
         val todayDate = getTodayDateString()
 
         if (lastDate != todayDate) {
-            // New Day: Archive yesterday's stats if not done? (Already done via sync usually)
-            // Ideally we wipe daily counters but keep history.
-            
-            // Clear daily counters
-            prefs.edit().clear().putString("last_run_date", todayDate).apply()
+            // New Day: clear only daily counters, NOT all prefs
+            val edit = prefs.edit()
+            prefs.all.forEach { (key, _) ->
+                if (key.startsWith("count_")) edit.remove(key)
+            }
+            edit.putString("last_run_date", todayDate)
+            edit.putInt("daily_bonus_used", 0)
+            edit.apply()
             _currentScanCount.value = 0
         }
     }

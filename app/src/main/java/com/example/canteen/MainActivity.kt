@@ -146,10 +146,12 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     }
 
     val scanStatus by repository.lastFetchStatus.collectAsState(initial = "Idle")
-    val currentScans by repository.currentScanCount.collectAsState(initial = 0)
+    val currentScans by repository.todayTotalCount.collectAsState(initial = 0)
     val isAppEnabled by firebaseRepo.isAppEnabled.collectAsState()
     val cloudScans by firebaseRepo.todayCloudScans.collectAsState()
     val todayLocalScans by repository.todayScans.collectAsState(initial = emptyList())
+    val todayAdmittedCount by repository.todayAdmittedCount.collectAsState(initial = 0)
+    val todayDeniedCount by repository.todayDeniedCount.collectAsState(initial = 0)
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Firebase-synced rules
@@ -247,8 +249,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         return
     }
 
-    val todayAdmittedCount = todayLocalScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
-    val todayDeniedCount = todayLocalScans.count { it.result == "DENIED" }
+    // todayAdmittedCount and todayDeniedCount now come from repository Flows (single source of truth from DB)
 
     when (currentScreen) {
         Screen.HOME -> {
