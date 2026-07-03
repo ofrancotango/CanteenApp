@@ -3,6 +3,9 @@ package com.example.canteen.work
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.canteen.data.EmailConfig
 import com.example.canteen.data.db.AppDatabase
@@ -11,6 +14,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 import javax.mail.Authenticator
 import javax.mail.Message
 import javax.mail.PasswordAuthentication
@@ -125,6 +129,7 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
 
             sendEmail("Canteen Report – $dateStr", html)
             markSent()
+            scheduleNextDay()
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 android.widget.Toast.makeText(applicationContext, "Mail inviata con successo!", android.widget.Toast.LENGTH_LONG).show()
             }
@@ -136,6 +141,29 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
             Result.retry()
         }
+    }
+
+    private fun scheduleNextDay() {
+        val workManager = WorkManager.getInstance(applicationContext)
+        val now = Calendar.getInstance()
+        val target = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, 1)
+            set(Calendar.HOUR_OF_DAY, EmailConfig.SEND_HOUR)
+            set(Calendar.MINUTE, EmailConfig.SEND_MINUTE)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val delayMs = target.timeInMillis - now.timeInMillis
+
+        val request = OneTimeWorkRequestBuilder<DailyReportWorker>()
+            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .build()
+
+        workManager.enqueueUniqueWork(
+            "daily_canteen_report",
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
     }
 
     private fun sendEmail(subject: String, htmlBody: String) {

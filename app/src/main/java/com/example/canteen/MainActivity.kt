@@ -4,10 +4,8 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.workDataOf
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.canteen.data.EmailConfig
 import com.example.canteen.work.DailyReportWorker
@@ -89,12 +87,32 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun scheduleDailyReport() {
-        val request = androidx.work.PeriodicWorkRequestBuilder<DailyReportWorker>(15, TimeUnit.MINUTES)
+        val workManager = WorkManager.getInstance(applicationContext)
+
+        // Cancel old periodic work if it exists (legacy cleanup)
+        workManager.cancelUniqueWork("daily_canteen_report_periodic")
+
+        // Calculate delay to next 22:00
+        val now = Calendar.getInstance()
+        val target = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, EmailConfig.SEND_HOUR)
+            set(Calendar.MINUTE, EmailConfig.SEND_MINUTE)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            // If we are already past 22:00 today, schedule for tomorrow
+            if (timeInMillis <= now.timeInMillis) {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        val delayMs = target.timeInMillis - now.timeInMillis
+
+        val request = OneTimeWorkRequestBuilder<DailyReportWorker>()
+            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
             .build()
 
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+        workManager.enqueueUniqueWork(
             "daily_canteen_report",
-            ExistingPeriodicWorkPolicy.UPDATE,
+            ExistingWorkPolicy.REPLACE,
             request
         )
     }

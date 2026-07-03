@@ -20,6 +20,16 @@ interface ScanEventDao {
     suspend fun getBonusCountForToday(startOfDay: Long): Int
 
     // All events today (SUCCESS, BONUS, DENIED) — for the live Today's Users screen
-    @Query("SELECT * FROM scan_events WHERE timestamp >= :startOfDay ORDER BY timestamp DESC")
-    fun getTodayAllScans(startOfDay: Long): Flow<List<ScanEvent>>
+    // Dynamic start-of-day: SQLite calculates "today at midnight" every time the query runs
+    @Query("SELECT * FROM scan_events WHERE timestamp >= (strftime('%s', 'now', 'start of day') * 1000) ORDER BY timestamp DESC")
+    fun getTodayAllScans(): Flow<List<ScanEvent>>
+
+    @Query("SELECT COUNT(*) FROM scan_events WHERE result IN ('SUCCESS', 'BONUS') AND timestamp >= (strftime('%s', 'now', 'start of day') * 1000)")
+    fun getTodayAdmittedCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM scan_events WHERE result = 'DENIED' AND timestamp >= (strftime('%s', 'now', 'start of day') * 1000)")
+    fun getTodayDeniedCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM scan_events WHERE timestamp >= (strftime('%s', 'now', 'start of day') * 1000)")
+    fun getTodayTotalCount(): Flow<Int>
 }
