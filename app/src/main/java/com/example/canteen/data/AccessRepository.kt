@@ -207,7 +207,9 @@ class AccessRepository(val context: Context) {
             Employee("Andre Fernandes Da sousa Nunes", "ManualWhitelist", "Andre Fernandes", "Da sousa Nunes"),
             Employee("Marius Gabriel Nica", "ManualWhitelist", "Marius Gabriel", "Nica"),
             Employee("Schiano Hugo", "ManualWhitelist", "Schiano", "Hugo"),
-            Employee("Sebastian Tomaszkowicz", "ManualWhitelist", "Sebastian", "Tomaszkowicz")
+            Employee("Sebastian Tomaszkowicz", "ManualWhitelist", "Sebastian", "Tomaszkowicz"),
+            // Jim Catering — no bonus limits, scans always allowed
+            Employee("Jim Catering", "JimCatering", "Jim", "Catering")
         )
         
         val currentWhitelist = whitelist.toMutableMap()
@@ -299,7 +301,8 @@ class AccessRepository(val context: Context) {
             "Andre Fernandes Da sousa Nunes",
             "Marius Gabriel Nica",
             "Schiano Hugo",
-            "Sebastian Tomaszkowicz"
+            "Sebastian Tomaszkowicz",
+            "Jim Catering"
         )
         val isSpecialWhitelisted = SPECIAL_WHITELIST.any { it.equals(employee.name.trim(), ignoreCase = true) }
 
@@ -339,10 +342,33 @@ class AccessRepository(val context: Context) {
         }
 
         // --- 4. DAILY LIMITS + BONUS ---
+        val isUnlimited = company.equals("JimCatering", ignoreCase = true) ||
+            employee.name.trim().equals("Jim Catering", ignoreCase = true)
+
         val countKey = "count_$matchedKey"
         val currentUsage = prefs.getInt(countKey, 0)
-        val allowance = 1 
-        
+        val allowance = 1
+
+        if (isUnlimited) {
+            // Jim Catering: no daily limit, always admitted
+            GlobalScope.launch(Dispatchers.IO) {
+                scanEventDao.insert(ScanEvent(
+                    timestamp = timestamp,
+                    scannedCode = scannedInput,
+                    matchedName = employee!!.name,
+                    company = company,
+                    result = "SUCCESS",
+                    reason = "UNLIMITED"
+                ))
+            }
+            return VerificationResult.Success(
+                originalName = scannedInput,
+                normalizedName = normalizedInput,
+                matchedName = employee.name,
+                isFuzzyMatch = isFuzzy
+            )
+        }
+
         if (currentUsage < allowance) {
             // SUCCESS (Standard)
             val newCount = currentUsage + 1
