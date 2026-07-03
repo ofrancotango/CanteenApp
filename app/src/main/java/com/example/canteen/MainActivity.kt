@@ -48,6 +48,7 @@ import com.example.canteen.ui.HomeScreen
 import com.example.canteen.ui.QRScannerScreen
 import com.example.canteen.ui.ResultScreen
 import com.example.canteen.ui.ServiceDisabledScreen
+import com.example.canteen.ui.NoteInputScreen
 import com.example.canteen.ui.StatsScreen
 import com.example.canteen.ui.TodayUsersScreen
 import com.example.canteen.ui.WhitelistManagerScreen
