@@ -8,13 +8,13 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 
 class QrCodeAnalyzer(
-    private val onQrCodeScanned: (String) -> Unit,
-    private val debounceMs: Long = 3000L
+    private val onQrCodeScanned: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
 
     private val scanner = BarcodeScanning.getClient()
     private var lastScannedCode: String? = null
     private var lastScanTime: Long = 0L
+    var debounceMs: Long = 3000L
 
     @SuppressLint("UnsafeOptInUsageError")
     override fun analyze(imageProxy: ImageProxy) {
