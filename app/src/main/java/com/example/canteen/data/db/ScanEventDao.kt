@@ -35,4 +35,7 @@ interface ScanEventDao {
 
     @Query("SELECT COUNT(*) FROM scan_events WHERE timestamp >= (strftime('%s', 'now', 'start of day') * 1000)")
     fun getTodayTotalCount(): Flow<Int>
+
+    @Query("UPDATE scan_events SET note = :note WHERE timestamp = :timestamp AND (company = 'JimCatering' OR company = 'Jim Catering')")
+    suspend fun updateNoteByTimestamp(note: String, timestamp: Long)
 }

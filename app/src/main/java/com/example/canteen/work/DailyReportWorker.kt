@@ -75,19 +75,54 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
             val bonus    = events.count { it.result == "BONUS" }
             val denied   = events.count { it.result == "DENIED" }
 
+            // Shift breakdown
+            val dayEvents = events.filter { it.shift == "DAY" }
+            val nightEvents = events.filter { it.shift == "NIGHT" }
+            val dayAdmitted = dayEvents.count { it.result == "SUCCESS" }
+            val dayBonus    = dayEvents.count { it.result == "BONUS" }
+            val dayDenied   = dayEvents.count { it.result == "DENIED" }
+            val nightAdmitted = nightEvents.count { it.result == "SUCCESS" }
+            val nightBonus    = nightEvents.count { it.result == "BONUS" }
+            val nightDenied   = nightEvents.count { it.result == "DENIED" }
+
             val rows = events.joinToString("") { e ->
                 val color = when (e.result) {
                     "SUCCESS" -> "#22C55E"
                     "BONUS"   -> "#F59E0B"
                     else      -> "#EF4444"
                 }
+                val shiftLabel = if (e.shift == "DAY") "D" else "N"
+                val noteCell = if (e.note != null) "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#666;font-size:11px;font-style:italic;'>${e.note}</td>" else ""
                 "<tr>" +
                 "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;'>${e.matchedName ?: e.scannedCode}</td>" +
                 "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;'>${e.company ?: ""}</td>" +
                 "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;font-weight:600;color:$color;'>${e.result}</td>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;font-size:11px;'>$shiftLabel</td>" +
+                noteCell +
                 "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;'>${timeFmt.format(Date(e.timestamp))}</td>" +
                 "</tr>"
             }
+
+            val shiftSummary = if (nightEvents.isNotEmpty()) {
+                """
+  <div style="padding:0 32px 24px;">
+    <div style="background:#FAFAFA;border-radius:10px;padding:16px 20px;border:1px solid #F0F0F0;">
+      <p style="margin:0 0 12px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Shift Breakdown</p>
+      <div style="display:flex;gap:16px;">
+        <div style="flex:1;background:#F0FDF4;border-radius:6px;padding:12px 14px;">
+          <div style="font-size:11px;color:#888;margin-bottom:2px;">DAY (06-22)</div>
+          <div style="font-size:18px;font-weight:700;color:#22C55E;">${dayAdmitted + dayBonus}</div>
+          <div style="font-size:10px;color:#aaa;">A ${dayAdmitted} / B ${dayBonus} / D ${dayDenied}</div>
+        </div>
+        <div style="flex:1;background:#EFF6FF;border-radius:6px;padding:12px 14px;">
+          <div style="font-size:11px;color:#888;margin-bottom:2px;">NIGHT (22-06)</div>
+          <div style="font-size:18px;font-weight:700;color:#2563EB;">${nightAdmitted + nightBonus}</div>
+          <div style="font-size:10px;color:#aaa;">A ${nightAdmitted} / B ${nightBonus} / D ${nightDenied}</div>
+        </div>
+      </div>
+    </div>
+  </div>"""
+            } else ""
 
             val html = """
 <!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F8F8F8;margin:0;padding:24px;">
@@ -110,12 +145,15 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
       <div style="font-size:11px;color:#888;margin-top:2px;letter-spacing:0.5px;">DENIED</div>
     </div>
   </div>
+$shiftSummary
   <div style="padding:0 32px 32px;">
     <table style="width:100%;border-collapse:collapse;">
       <thead><tr style="background:#F8F8F8;">
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Name</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Company</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Result</th>
+        <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Shift</th>
+        <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Note</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Time</th>
       </tr></thead>
       <tbody>$rows</tbody>

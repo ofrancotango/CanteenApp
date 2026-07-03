@@ -95,13 +95,13 @@ class AccessRepository(val context: Context) {
         val todayDate = getTodayDateString()
 
         if (lastDate != todayDate) {
-            // New Day: clear only daily counters, NOT all prefs
+            // New Day: clear only daily counters per shift, NOT all prefs
             val edit = prefs.edit()
             prefs.all.forEach { (key, _) ->
                 if (key.startsWith("count_")) edit.remove(key)
+                if (key.startsWith("daily_bonus_used_")) edit.remove(key)
             }
             edit.putString("last_run_date", todayDate)
-            edit.putInt("daily_bonus_used", 0)
             edit.apply()
             _currentScanCount.value = 0
         }
@@ -110,7 +110,13 @@ class AccessRepository(val context: Context) {
     private fun getTodayDateString(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
-    
+
+    // Day shift: 06:00-22:00, Night shift: 22:00-06:00
+    fun getCurrentShift(): String {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        return if (hour in 6..21) "DAY" else "NIGHT"
+    }
+
     private fun getStartOfDayTimestamp(): Long {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -342,10 +348,11 @@ class AccessRepository(val context: Context) {
         }
 
         // --- 4. DAILY LIMITS + BONUS ---
+        val shift = getCurrentShift()
         val isUnlimited = company.equals("JimCatering", ignoreCase = true) ||
             employee.name.trim().equals("Jim Catering", ignoreCase = true)
 
-        val countKey = "count_$matchedKey"
+        val countKey = "count_${matchedKey}_$shift"
         val currentUsage = prefs.getInt(countKey, 0)
         val allowance = 1
 
@@ -358,14 +365,17 @@ class AccessRepository(val context: Context) {
                     matchedName = employee!!.name,
                     company = company,
                     result = "SUCCESS",
-                    reason = "UNLIMITED"
+                    reason = "UNLIMITED",
+                    shift = shift
                 ))
             }
             return VerificationResult.Success(
                 originalName = scannedInput,
                 normalizedName = normalizedInput,
                 matchedName = employee.name,
-                isFuzzyMatch = isFuzzy
+                isFuzzyMatch = isFuzzy,
+                requiresNote = true,
+                timestamp = timestamp
             )
         }
 
@@ -373,7 +383,7 @@ class AccessRepository(val context: Context) {
             // SUCCESS (Standard)
             val newCount = currentUsage + 1
             prefs.edit().putInt(countKey, newCount).apply()
-            
+
             // Async Persistence to DB
             GlobalScope.launch(Dispatchers.IO) {
                 syncStatsToDb()
@@ -384,42 +394,41 @@ class AccessRepository(val context: Context) {
                     matchedName = employee!!.name,
                     company = company,
                     result = "SUCCESS",
-                    reason = null
+                    reason = null,
+                    shift = shift
                 ))
             }
-            
+
             return VerificationResult.Success(
-                originalName = scannedInput, 
+                originalName = scannedInput,
                 normalizedName = normalizedInput,
-                matchedName = employee.name, 
+                matchedName = employee.name,
                 isFuzzyMatch = isFuzzy
             )
         } else {
-            // LIMIT REACHED - CHECK BONUS
-            // We need to check GLOBAL bonus usage for today
-            val usedBonus = prefs.getInt("daily_bonus_used", 0)
-            
+            // LIMIT REACHED - CHECK BONUS (per shift)
+            val bonusKey = "daily_bonus_used_$shift"
+            val usedBonus = prefs.getInt(bonusKey, 0)
+
             if (usedBonus < DAILY_BONUS_THRESHOLD) {
                 // GRANT BONUS ACCESS
                 val newBonus = usedBonus + 1
-                prefs.edit().putInt("daily_bonus_used", newBonus).apply()
-                
-                // We DON'T increment their personal count effectively (or we do? User said "first 25 limit reached pass").
-                // Implies they get a pass. We should probably log it as BONUS.
-                
+                prefs.edit().putInt(bonusKey, newBonus).apply()
+
                 GlobalScope.launch(Dispatchers.IO) {
                     syncStatsToDb()
-                    updateScanCountFlow() // Bonus counts as a scan
+                    updateScanCountFlow()
                     scanEventDao.insert(ScanEvent(
                         timestamp = timestamp,
                         scannedCode = scannedInput,
                         matchedName = employee!!.name,
                         company = company,
-                        result = "BONUS", // Distinction
-                        reason = "LIMIT_REACHED_BONUS($newBonus/$DAILY_BONUS_THRESHOLD)"
+                        result = "BONUS",
+                        reason = "LIMIT_REACHED_BONUS($newBonus/$DAILY_BONUS_THRESHOLD)",
+                        shift = shift
                     ))
                 }
-                
+
                 return VerificationResult.Success(
                     originalName = scannedInput,
                     normalizedName = normalizedInput,
@@ -436,8 +445,9 @@ class AccessRepository(val context: Context) {
             }
         }
     }
-    
+
     private fun logEvent(ts: Long, code: String, name: String?, company: String?, res: String, reason: String?) {
+        val shift = getCurrentShift()
         GlobalScope.launch(Dispatchers.IO) {
             scanEventDao.insert(ScanEvent(
                 timestamp = ts,
@@ -445,7 +455,8 @@ class AccessRepository(val context: Context) {
                 matchedName = name,
                 company = company,
                 result = res,
-                reason = reason
+                reason = reason,
+                shift = shift
             ))
         }
     }
@@ -617,16 +628,27 @@ class AccessRepository(val context: Context) {
         return whitelist.values.distinct().sortedBy { it.name }
     }
 
+    suspend fun addNoteToJimCateringScan(timestamp: Long, note: String) {
+        scanEventDao.updateNoteByTimestamp(note, timestamp)
+    }
+
     suspend fun exportLogs(): String {
         return withContext(Dispatchers.IO) {
             val events = scanEventDao.getAll()
             val sb = StringBuilder()
-            sb.append("ID;Timestamp;Time;Code;MatchedName;Company;Result;Reason\n")
+            sb.append("ID;Timestamp;Time;Code;MatchedName;Company;Result;Reason;Shift;Note\n")
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            
+
+            fun csvField(value: String?): String {
+                val raw = value ?: ""
+                return if (raw.contains(";") || raw.contains("\"") || raw.contains("\n")) {
+                    "\"" + raw.replace("\"", "\"\"") + "\""
+                } else raw
+            }
+
             events.forEach { e ->
                 val timeStr = sdf.format(Date(e.timestamp))
-                sb.append("${e.id};${e.timestamp};$timeStr;${e.scannedCode};${e.matchedName ?: ""};${e.company ?: ""};${e.result};${e.reason ?: ""}\n")
+                sb.append("${e.id};${e.timestamp};$timeStr;${csvField(e.scannedCode)};${csvField(e.matchedName)};${csvField(e.company)};${csvField(e.result)};${csvField(e.reason)};${csvField(e.shift)};${csvField(e.note)}\n")
             }
             sb.toString()
         }

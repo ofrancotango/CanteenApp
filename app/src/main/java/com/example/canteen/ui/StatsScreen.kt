@@ -374,6 +374,8 @@ private fun DayDetailDialog(
                     color = AppMuted
                 )
             } else {
+                val dayEvents = events.filter { it.shift == "DAY" }
+                val nightEvents = events.filter { it.shift == "NIGHT" }
                 val admitted = events.count { it.result == "SUCCESS" || it.result == "BONUS" }
                 val denied = events.count { it.result == "DENIED" }
                 val bonus = events.count { it.result == "BONUS" }
@@ -381,6 +383,13 @@ private fun DayDetailDialog(
                     StatMiniCard("Admitted", admitted, SuccessGreen, Modifier.weight(1f))
                     StatMiniCard("Bonus", bonus, androidx.compose.ui.graphics.Color(0xFFF59E0B), Modifier.weight(1f))
                     StatMiniCard("Denied", denied, ErrorRed, Modifier.weight(1f))
+                }
+                if (nightEvents.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatMiniCard("Day", dayEvents.count { it.result == "SUCCESS" || it.result == "BONUS" }, androidx.compose.ui.graphics.Color(0xFF22C55E), Modifier.weight(1f))
+                        StatMiniCard("Night", nightEvents.count { it.result == "SUCCESS" || it.result == "BONUS" }, androidx.compose.ui.graphics.Color(0xFF2563EB), Modifier.weight(1f))
+                    }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -414,6 +423,14 @@ private fun DayDetailDialog(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = AppMuted
                                 )
+                                if (event.note != null) {
+                                    Text(
+                                        text = event.note,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = AppAccent,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(

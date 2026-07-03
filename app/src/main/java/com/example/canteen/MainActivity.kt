@@ -122,6 +122,7 @@ enum class Screen {
     HOME,
     SCANNER,
     RESULT,
+    NOTE_INPUT,
     STATS,
     TODAY_USERS,
     WHITELIST_MANAGER,
@@ -134,6 +135,7 @@ private const val ADMIN_PIN = "6767"
 fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncRepository) {
     var currentScreen by remember { mutableStateOf(Screen.HOME) }
     var lastResult by remember { mutableStateOf<VerificationResult?>(null) }
+    var noteScanTargetTimestamp by remember { mutableStateOf<Long?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -271,6 +273,16 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         Screen.SCANNER -> {
             QRScannerScreen(
                 onQrCodeScanned = { code ->
+                    // If we are in "note scan mode", use this badge as note instead of normal verification
+                    val targetTs = noteScanTargetTimestamp
+                    if (targetTs != null) {
+                        noteScanTargetTimestamp = null
+                        scope.launch {
+                            repository.addNoteToJimCateringScan(targetTs, code)
+                            currentScreen = Screen.HOME
+                        }
+                        return@QRScannerScreen
+                    }
                     val result = repository.verifyAccess(code)
                     if (result is VerificationResult.Success) {
                         val matchedName = result.matchedName.removeSuffix(" (BONUS)")
@@ -287,9 +299,17 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                         )
                     }
                     lastResult = result
-                    currentScreen = Screen.RESULT
+                    // If Jim Catering scan, show note input screen
+                    currentScreen = if (result is VerificationResult.Success && result.requiresNote) {
+                        Screen.NOTE_INPUT
+                    } else {
+                        Screen.RESULT
+                    }
                 },
-                onCancel = { currentScreen = Screen.HOME },
+                onCancel = {
+                    noteScanTargetTimestamp = null
+                    currentScreen = Screen.HOME
+                },
                 scanCount = currentScans
             )
         }
@@ -300,6 +320,33 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                     onNextClick = { currentScreen = Screen.SCANNER },
                     onHomeClick = { currentScreen = Screen.HOME }
                 )
+            }
+        }
+        Screen.NOTE_INPUT -> {
+            val result = lastResult
+            if (result is VerificationResult.Success) {
+                NoteInputScreen(
+                    scannedName = result.matchedName,
+                    onSaveNote = { note ->
+                        scope.launch {
+                            if (note.isNotBlank()) {
+                                repository.addNoteToJimCateringScan(result.timestamp, note)
+                            }
+                            lastResult = null
+                            currentScreen = Screen.HOME
+                        }
+                    },
+                    onSkip = {
+                        lastResult = null
+                        currentScreen = Screen.HOME
+                    },
+                    onScanBadgeForNote = {
+                        noteScanTargetTimestamp = result.timestamp
+                        currentScreen = Screen.SCANNER
+                    }
+                )
+            } else {
+                currentScreen = Screen.HOME
             }
         }
         Screen.STATS -> {
