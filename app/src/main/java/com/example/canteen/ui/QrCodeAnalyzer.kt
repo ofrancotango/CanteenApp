@@ -8,10 +8,13 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 
 class QrCodeAnalyzer(
-    private val onQrCodeScanned: (String) -> Unit
+    private val onQrCodeScanned: (String) -> Unit,
+    private val debounceMs: Long = 3000L
 ) : ImageAnalysis.Analyzer {
 
     private val scanner = BarcodeScanning.getClient()
+    private var lastScannedCode: String? = null
+    private var lastScanTime: Long = 0L
 
     @SuppressLint("UnsafeOptInUsageError")
     override fun analyze(imageProxy: ImageProxy) {
@@ -21,12 +24,17 @@ class QrCodeAnalyzer(
 
             scanner.process(image)
                 .addOnSuccessListener { barcodes ->
+                    val now = System.currentTimeMillis()
                     for (barcode in barcodes) {
                         if (barcode.valueType == Barcode.TYPE_TEXT || barcode.valueType == Barcode.TYPE_UNKNOWN) {
-                            // Raw value might be null, but usually displayValue or rawValue has the string
                             val rawValue = barcode.rawValue
                             if (!rawValue.isNullOrBlank()) {
-                                onQrCodeScanned(rawValue)
+                                // Debounce: ignore same code within debounceMs
+                                if (rawValue != lastScannedCode || (now - lastScanTime) > debounceMs) {
+                                    lastScannedCode = rawValue
+                                    lastScanTime = now
+                                    onQrCodeScanned(rawValue)
+                                }
                             }
                         }
                     }
