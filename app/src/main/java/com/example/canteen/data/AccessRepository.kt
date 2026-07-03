@@ -111,10 +111,15 @@ class AccessRepository(val context: Context) {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
-    // Day shift: 06:00-22:00, Night shift: 22:00-06:00
+    // Day shift: 06:00-15:00, Night shift: 15:00-21:30
     fun getCurrentShift(): String {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        return if (hour in 6..21) "DAY" else "NIGHT"
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val minute = calendar.get(Calendar.MINUTE)
+        val time = hour * 60 + minute // minutes since midnight
+        val dayEnd = 15 * 60          // 15:00
+        val nightEnd = 21 * 60 + 30   // 21:30
+        return if (time in 360..<dayEnd) "DAY" else "NIGHT"
     }
 
     private fun getStartOfDayTimestamp(): Long {

@@ -110,12 +110,12 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
       <p style="margin:0 0 12px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Shift Breakdown</p>
       <div style="display:flex;gap:16px;">
         <div style="flex:1;background:#F0FDF4;border-radius:6px;padding:12px 14px;">
-          <div style="font-size:11px;color:#888;margin-bottom:2px;">DAY (06-22)</div>
+          <div style="font-size:11px;color:#888;margin-bottom:2px;">DAY (06-15)</div>
           <div style="font-size:18px;font-weight:700;color:#22C55E;">${dayAdmitted + dayBonus}</div>
           <div style="font-size:10px;color:#aaa;">A ${dayAdmitted} / B ${dayBonus} / D ${dayDenied}</div>
         </div>
         <div style="flex:1;background:#EFF6FF;border-radius:6px;padding:12px 14px;">
-          <div style="font-size:11px;color:#888;margin-bottom:2px;">NIGHT (22-06)</div>
+          <div style="font-size:11px;color:#888;margin-bottom:2px;">NIGHT (15-21:30)</div>
           <div style="font-size:18px;font-weight:700;color:#2563EB;">${nightAdmitted + nightBonus}</div>
           <div style="font-size:10px;color:#aaa;">A ${nightAdmitted} / B ${nightBonus} / D ${nightDenied}</div>
         </div>

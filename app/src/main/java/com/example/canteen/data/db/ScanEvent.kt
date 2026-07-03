@@ -13,6 +13,6 @@ data class ScanEvent(
     val company: String?,
     val result: String, // "SUCCESS", "DENIED", "BONUS"
     val reason: String? = null, // "LIMIT_REACHED", "UNKNOWN_USER", "BLACKLISTED", etc.
-    val shift: String = "DAY", // "DAY" (06:00-22:00) or "NIGHT" (22:00-06:00)
+    val shift: String = "DAY", // "DAY" (06:00-15:00) or "NIGHT" (15:00-21:30)
     val note: String? = null // Optional note (e.g. "Jim Catering passing: Mario Rossi")
 )
