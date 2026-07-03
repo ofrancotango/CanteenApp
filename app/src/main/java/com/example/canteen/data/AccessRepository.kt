@@ -499,6 +499,14 @@ class AccessRepository(val context: Context) {
             statsDao.getAllStats()
         }
     }
+
+    fun getEventsForDate(dateStr: String): Flow<List<ScanEvent>> {
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+        val date = sdf.parse(dateStr) ?: return kotlinx.coroutines.flow.flowOf(emptyList())
+        val start = date.time
+        val end = start + 24 * 60 * 60 * 1000L
+        return scanEventDao.getEventsByDateFlow(start, end)
+    }
     
     // Expected attendance = Count of Whitelisted Employees
     fun getExpectedAttendance(): Int {

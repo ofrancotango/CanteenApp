@@ -16,6 +16,9 @@ interface ScanEventDao {
     @Query("SELECT * FROM scan_events WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
     suspend fun getEventsByDate(start: Long, end: Long): List<ScanEvent>
 
+    @Query("SELECT * FROM scan_events WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
+    fun getEventsByDateFlow(start: Long, end: Long): Flow<List<ScanEvent>>
+
     @Query("SELECT COUNT(*) FROM scan_events WHERE result = 'BONUS' AND timestamp >= :startOfDay")
     suspend fun getBonusCountForToday(startOfDay: Long): Int
 

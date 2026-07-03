@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.canteen.data.AccessRepository
 import com.example.canteen.data.db.DailyStats
+import com.example.canteen.data.db.ScanEvent
 import com.example.canteen.ui.theme.AppAccent
 import com.example.canteen.ui.theme.AppAccentLight
 import com.example.canteen.ui.theme.AppBackground
@@ -59,10 +60,24 @@ fun StatsScreen(
     onBackClick: () -> Unit
 ) {
     var dailyHistory by remember { mutableStateOf<List<DailyStats>>(emptyList()) }
+    var selectedDate by remember { mutableStateOf<String?>(null) }
+    var selectedEvents by remember { mutableStateOf<List<ScanEvent>>(emptyList()) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     LaunchedEffect(Unit) { dailyHistory = repository.getDailyHistory() }
+
+    // Load events when a date is selected
+    LaunchedEffect(selectedDate) {
+        val date = selectedDate
+        if (date != null) {
+            repository.getEventsForDate(date).collect { events ->
+                selectedEvents = events
+            }
+        } else {
+            selectedEvents = emptyList()
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(AppBackground)) {
         // Custom top bar
@@ -212,11 +227,27 @@ fun StatsScreen(
 
             // History items
             items(dailyHistory) { item ->
-                HistoryRow(item)
+                HistoryRow(
+                    stats = item,
+                    onClick = { selectedDate = item.date }
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
             item { Spacer(modifier = Modifier.height(32.dp)) }
+        }
+    }
+
+    // Day detail dialog
+    selectedDate?.let { date ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { selectedDate = null }
+        ) {
+            DayDetailDialog(
+                date = date,
+                events = selectedEvents,
+                onDismiss = { selectedDate = null }
+            )
         }
     }
 }
@@ -259,13 +290,14 @@ private fun StatCard(
 }
 
 @Composable
-private fun HistoryRow(stats: DailyStats) {
+private fun HistoryRow(stats: DailyStats, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(AppSurface)
             .border(1.dp, AppBorder, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(
@@ -299,6 +331,140 @@ private fun HistoryRow(stats: DailyStats) {
                     fontWeight = FontWeight.SemiBold
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DayDetailDialog(
+    date: String,
+    events: List<ScanEvent>,
+    onDismiss: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = AppBackground),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppBorder),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = date,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = AppText
+                )
+                IconButton(onClick = onDismiss) {
+                    Text("×", color = AppMuted, fontSize = 22.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (events.isEmpty()) {
+                Text(
+                    text = "Nessuna scansione per questo giorno.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppMuted
+                )
+            } else {
+                val admitted = events.count { it.result == "SUCCESS" || it.result == "BONUS" }
+                val denied = events.count { it.result == "DENIED" }
+                val bonus = events.count { it.result == "BONUS" }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatMiniCard("Admitted", admitted, SuccessGreen, Modifier.weight(1f))
+                    StatMiniCard("Bonus", bonus, androidx.compose.ui.graphics.Color(0xFFF59E0B), Modifier.weight(1f))
+                    StatMiniCard("Denied", denied, ErrorRed, Modifier.weight(1f))
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                    items(events) { event ->
+                        val color = when (event.result) {
+                            "SUCCESS" -> SuccessGreen
+                            "BONUS" -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
+                            else -> ErrorRed
+                        }
+                        val time = remember {
+                            val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                            sdf.format(java.util.Date(event.timestamp))
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = event.matchedName ?: event.scannedCode,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AppText
+                                )
+                                Text(
+                                    text = event.company ?: "",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppMuted
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = event.result,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = color
+                                )
+                                Text(
+                                    text = time,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppMuted
+                                )
+                            }
+                        }
+                        androidx.compose.material3.HorizontalDivider(color = AppBorder, thickness = 0.5.dp)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            androidx.compose.material3.TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text("Chiudi", color = AppAccent)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatMiniCard(label: String, value: Int, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(color.copy(alpha = 0.1f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = value.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = color.copy(alpha = 0.8f)
+            )
         }
     }
 }
