@@ -40,13 +40,33 @@ class AccessRepository(val context: Context) {
     private val _currentScanCount = MutableStateFlow(0)
     val currentScanCount: StateFlow<Int> = _currentScanCount
 
-    // Real-time list of ALL today's scans — SQLite recalculates "start of day" every refresh
-    val todayScans: Flow<List<ScanEvent>> = scanEventDao.getTodayAllScans()
+    // Real-time list of ALL today's scans — auto-refreshed via timer in MainActivity
+    private val _todayScans = MutableStateFlow<List<ScanEvent>>(emptyList())
+    val todayScans: StateFlow<List<ScanEvent>> = _todayScans
 
     // Real-time daily counts from database — single source of truth
-    val todayAdmittedCount: Flow<Int> = scanEventDao.getTodayAdmittedCount()
-    val todayDeniedCount: Flow<Int> = scanEventDao.getTodayDeniedCount()
-    val todayTotalCount: Flow<Int> = scanEventDao.getTodayTotalCount()
+    private val _todayAdmittedCount = MutableStateFlow(0)
+    val todayAdmittedCount: StateFlow<Int> = _todayAdmittedCount
+    private val _todayDeniedCount = MutableStateFlow(0)
+    val todayDeniedCount: StateFlow<Int> = _todayDeniedCount
+    private val _todayTotalCount = MutableStateFlow(0)
+    val todayTotalCount: StateFlow<Int> = _todayTotalCount
+
+    init {
+        // Start collecting DB flows into StateFlows
+        GlobalScope.launch(Dispatchers.IO) {
+            scanEventDao.getTodayAllScans().collect { _todayScans.value = it }
+        }
+        GlobalScope.launch(Dispatchers.IO) {
+            scanEventDao.getTodayAdmittedCount().collect { _todayAdmittedCount.value = it }
+        }
+        GlobalScope.launch(Dispatchers.IO) {
+            scanEventDao.getTodayDeniedCount().collect { _todayDeniedCount.value = it }
+        }
+        GlobalScope.launch(Dispatchers.IO) {
+            scanEventDao.getTodayTotalCount().collect { _todayTotalCount.value = it }
+        }
+    }
 
     var totalEmployees: Int = 0
     var lastError: String? = null
@@ -107,8 +127,19 @@ class AccessRepository(val context: Context) {
         }
     }
 
-    private fun getTodayDateString(): String {
+    fun getTodayDateString(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    }
+
+    // Force re-query of today's data — call when day boundary is crossed while app is open
+    fun refreshTodayStats() {
+        checkDailyReset()
+        GlobalScope.launch(Dispatchers.IO) {
+            // Re-query DB — the StateFlows will auto-update via their Flow collectors
+            // (they're already collecting from Room, but checkDailyReset clears counters)
+            syncStatsToDb()
+            updateScanCountFlow()
+        }
     }
 
     // Day shift: 06:00-15:00, Night shift: 15:00-21:30

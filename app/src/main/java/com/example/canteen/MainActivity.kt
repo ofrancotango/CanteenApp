@@ -148,8 +148,24 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
 
+    // Day boundary timer: refresh stats and Firebase listener at midnight
     DisposableEffect(Unit) {
-        onDispose { firebaseRepo.refreshTodayListenerIfNeeded() }
+        var lastDay = repository.getTodayDateString()
+        val timer = java.util.Timer()
+        timer.scheduleAtFixedRate(object : java.util.TimerTask() {
+            override fun run() {
+                val currentDay = repository.getTodayDateString()
+                if (currentDay != lastDay) {
+                    lastDay = currentDay
+                    repository.refreshTodayStats()
+                    firebaseRepo.refreshTodayListenerIfNeeded()
+                }
+            }
+        }, 60000L, 60000L) // check every 60 seconds
+        onDispose {
+            timer.cancel()
+            firebaseRepo.refreshTodayListenerIfNeeded()
+        }
     }
 
     if (showAdminDialog) {
