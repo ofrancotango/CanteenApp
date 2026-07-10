@@ -485,15 +485,20 @@ class AccessRepository(val context: Context) {
     private fun logEvent(ts: Long, code: String, name: String?, company: String?, res: String, reason: String?) {
         val shift = getCurrentShift()
         GlobalScope.launch(Dispatchers.IO) {
-            scanEventDao.insert(ScanEvent(
-                timestamp = ts,
-                scannedCode = code,
-                matchedName = name,
-                company = company,
-                result = res,
-                reason = reason,
-                shift = shift
-            ))
+            try {
+                scanEventDao.insert(ScanEvent(
+                    timestamp = ts,
+                    scannedCode = code,
+                    matchedName = name,
+                    company = company,
+                    result = res,
+                    reason = reason,
+                    shift = shift
+                ))
+            } catch (e: Exception) {
+                // Log insert failure so we can diagnose missing denied entries
+                android.util.Log.e("AccessRepository", "Failed to insert $res scan: ${e.message}")
+            }
         }
     }
 

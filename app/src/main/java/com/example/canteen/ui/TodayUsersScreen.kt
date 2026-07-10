@@ -63,31 +63,31 @@ fun TodayUsersScreen(
     cloudScans: List<CloudScan>,
     onBackClick: () -> Unit
 ) {
-    val isCloudSync = cloudScans.isNotEmpty()
-
-    val displayScans: List<DisplayScan> = if (isCloudSync) {
-        cloudScans.map {
-            DisplayScan(
-                name = it.name,
-                company = it.company,
-                result = it.result,
-                reason = null,
-                timestamp = it.timestamp,
-                isCloud = true
-            )
-        }
-    } else {
-        localScans.map {
-            DisplayScan(
-                name = it.matchedName ?: it.scannedCode,
-                company = it.company ?: "",
-                result = it.result,
-                reason = it.reason,
-                timestamp = it.timestamp,
-                isCloud = false
-            )
-        }
+    // Merge local + cloud scans; cloud has no reason/note, local has full detail
+    val localDisplay = localScans.map {
+        DisplayScan(
+            name = it.matchedName ?: it.scannedCode,
+            company = it.company ?: "",
+            result = it.result,
+            reason = it.reason,
+            timestamp = it.timestamp,
+            isCloud = false
+        )
     }
+    val cloudDisplay = cloudScans.map {
+        DisplayScan(
+            name = it.name,
+            company = it.company,
+            result = it.result,
+            reason = null,
+            timestamp = it.timestamp,
+            isCloud = true
+        )
+    }
+    // Deduplicate by timestamp+name (same event from local and cloud is the same scan)
+    val displayScans = (localDisplay + cloudDisplay)
+        .distinctBy { "${it.name}_${it.timestamp}" }
+        .sortedByDescending { it.timestamp }
 
     val admitted = displayScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
     val denied = displayScans.count { it.result == "DENIED" }
