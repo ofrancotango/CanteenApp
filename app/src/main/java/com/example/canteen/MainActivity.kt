@@ -345,7 +345,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
             val stats = repository.getStats()
             StatsScreen(
                 stats = stats,
-                expectedAttendance = repository.getExpectedAttendance(),
+                expectedAttendance = expectedAttendance,
                 repository = repository,
                 onBackClick = { currentScreen = Screen.HOME }
             )
