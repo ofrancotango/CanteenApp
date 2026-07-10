@@ -91,6 +91,7 @@ fun TodayUsersScreen(
 
     val admitted = displayScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
     val denied = displayScans.count { it.result == "DENIED" }
+    val isCloudSync = cloudScans.isNotEmpty()
 
     val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
