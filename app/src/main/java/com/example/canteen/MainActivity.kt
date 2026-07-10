@@ -121,13 +121,17 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     }
 
     val scanStatus by repository.lastFetchStatus.collectAsState(initial = "Idle")
-    val currentScans by repository.todayTotalCount.collectAsState(initial = 0)
     val isAppEnabled by firebaseRepo.isAppEnabled.collectAsState()
     val cloudScans by firebaseRepo.todayCloudScans.collectAsState()
     val todayLocalScans by repository.todayScans.collectAsState(initial = emptyList())
     val todayAdmittedCount by repository.todayAdmittedCount.collectAsState(initial = 0)
     val todayDeniedCount by repository.todayDeniedCount.collectAsState(initial = 0)
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+
+    var expectedAttendance by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        expectedAttendance = repository.getExpectedAttendance()
+    }
 
     // Firebase-synced rules
     val allowedCompanies by firebaseRepo.allowedCompanies.collectAsState()
@@ -245,10 +249,9 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     when (currentScreen) {
         Screen.HOME -> {
             HomeScreen(
-                scansToday = currentScans,
+                scansToday = todayAdmittedCount,
                 scanStatus = "$scanStatus (Last Err: ${repository.lastError ?: "None"})",
-                expectedAttendance = repository.getExpectedAttendance(),
-                admittedCount = todayAdmittedCount,
+                expectedAttendance = expectedAttendance,
                 deniedCount = todayDeniedCount,
                 onScanClick = { currentScreen = Screen.SCANNER },
                 onStatsClick = { currentScreen = Screen.STATS },
@@ -299,7 +302,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                     noteScanTargetTimestamp = null
                     currentScreen = Screen.HOME
                 },
-                scanCount = currentScans
+                scanCount = todayAdmittedCount
             )
         }
         Screen.RESULT -> {

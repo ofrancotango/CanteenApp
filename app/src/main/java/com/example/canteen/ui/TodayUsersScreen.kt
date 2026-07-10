@@ -168,38 +168,45 @@ fun TodayUsersScreen(
                 }
             }
         } else {
+            val admittedList = displayScans.filter { it.result == "SUCCESS" || it.result == "BONUS" }
+            val deniedList = displayScans.filter { it.result == "DENIED" }
             LazyColumn(
                 modifier = Modifier
                     .padding(horizontal = 24.dp)
                     .fillMaxSize()
             ) {
-                item {
-                    // Summary row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        SummaryBox(
-                            value = admitted,
-                            label = "admitted",
+                // Admitted section header
+                if (admittedList.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Admitted  \u2713",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
                             color = SuccessGreen,
-                            modifier = Modifier.weight(1f)
-                        )
-                        SummaryBox(
-                            value = denied,
-                            label = "denied",
-                            color = ErrorRed,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.padding(vertical = 12.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    items(admittedList, key = { "ad_${it.name}_${it.timestamp}" }) { scan ->
+                        UserCard(scan = scan, timeFmt = timeFmt)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
 
-                items(displayScans, key = { "${it.name}_${it.timestamp}" }) { scan ->
-                    UserCard(scan = scan, timeFmt = timeFmt)
-                    Spacer(modifier = Modifier.height(8.dp))
+                // Denied section header
+                if (deniedList.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Denied  \u2715",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = ErrorRed,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    }
+                    items(deniedList, key = { "dn_${it.name}_${it.timestamp}" }) { scan ->
+                        UserCard(scan = scan, timeFmt = timeFmt)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
 
                 item { Spacer(modifier = Modifier.height(32.dp)) }

@@ -555,11 +555,35 @@ class AccessRepository(val context: Context) {
         return scanEventDao.getEventsByDateFlow(start, end)
     }
     
-    // Expected attendance = Count of Whitelisted Employees
-    fun getExpectedAttendance(): Int {
-        // Filter current whitelist by Allowed Companies
-        return whitelist.values.distinct().count { emp -> 
-            ALLOWED_COMPANIES.any { it.equals(emp.company, ignoreCase = true) }
+    // Expected attendance = average admitted count over last 2 workdays (Mon-Fri), excluding Sat/Sun
+    suspend fun getExpectedAttendance(): Int = withContext(Dispatchers.IO) {
+        val cal = Calendar.getInstance()
+        val dayCounts = mutableListOf<Int>()
+        // Scan back up to 14 days to find 2 workdays
+        for (i in 1..14) {
+            cal.add(Calendar.DAY_OF_YEAR, -1)
+            val dow = cal.get(Calendar.DAY_OF_WEEK)
+            if (dow != Calendar.SATURDAY && dow != Calendar.SUNDAY) {
+                val start = cal.clone() as Calendar
+                start.set(Calendar.HOUR_OF_DAY, 0)
+                start.set(Calendar.MINUTE, 0)
+                start.set(Calendar.SECOND, 0)
+                start.set(Calendar.MILLISECOND, 0)
+                val end = start.clone() as Calendar
+                end.add(Calendar.DAY_OF_YEAR, 1)
+                val events = scanEventDao.getEventsByDate(start.timeInMillis, end.timeInMillis)
+                val admitted = events.count { it.result == "SUCCESS" || it.result == "BONUS" }
+                dayCounts.add(admitted)
+                if (dayCounts.size >= 2) break
+            }
+        }
+        if (dayCounts.isEmpty()) {
+            // Fallback: count whitelist employees from allowed companies
+            whitelist.values.distinct().count { emp ->
+                ALLOWED_COMPANIES.any { it.equals(emp.company, ignoreCase = true) }
+            }
+        } else {
+            dayCounts.sum() / dayCounts.size
         }
     }
 

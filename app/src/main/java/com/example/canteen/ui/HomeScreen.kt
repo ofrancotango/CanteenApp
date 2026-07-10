@@ -68,7 +68,6 @@ fun HomeScreen(
     scansToday: Int,
     scanStatus: String,
     expectedAttendance: Int,
-    admittedCount: Int,
     deniedCount: Int,
     onScanClick: () -> Unit,
     onStatsClick: () -> Unit,
@@ -203,20 +202,8 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "\u2713 admitted", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(SuccessGreen.copy(alpha = 0.1f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(text = "$admittedCount", style = MaterialTheme.typography.labelSmall, color = SuccessGreen, fontWeight = FontWeight.Bold)
-                        }
-                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(text = "\u2715 denied", style = MaterialTheme.typography.labelSmall, color = ErrorRed)
                         Spacer(modifier = Modifier.width(4.dp))
