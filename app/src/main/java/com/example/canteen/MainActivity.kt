@@ -276,19 +276,31 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                         return@QRScannerScreen
                     }
                     val result = repository.verifyAccess(code)
-                    if (result is VerificationResult.Success) {
-                        val matchedName = result.matchedName.removeSuffix(" (BONUS)")
-                        val isBonus = result.matchedName.endsWith("(BONUS)")
-                        val company = repository.getWhitelistRawList()
-                            .firstOrNull { it.name.equals(matchedName, ignoreCase = true) }
-                            ?.company ?: ""
-                        firebaseRepo.pushScan(
-                            name = matchedName,
-                            company = company,
-                            result = if (isBonus) "BONUS" else "SUCCESS",
-                            timestamp = System.currentTimeMillis(),
-                            deviceId = deviceId
-                        )
+                    val scanTimestamp = System.currentTimeMillis()
+                    when (result) {
+                        is VerificationResult.Success -> {
+                            val matchedName = result.matchedName.removeSuffix(" (BONUS)")
+                            val isBonus = result.matchedName.endsWith("(BONUS)")
+                            val company = repository.getWhitelistRawList()
+                                .firstOrNull { it.name.equals(matchedName, ignoreCase = true) }
+                                ?.company ?: ""
+                            firebaseRepo.pushScan(
+                                name = matchedName,
+                                company = company,
+                                result = if (isBonus) "BONUS" else "SUCCESS",
+                                timestamp = scanTimestamp,
+                                deviceId = deviceId
+                            )
+                        }
+                        is VerificationResult.Failure -> {
+                            firebaseRepo.pushScan(
+                                name = result.scannedName,
+                                company = result.company ?: "",
+                                result = "DENIED",
+                                timestamp = scanTimestamp,
+                                deviceId = deviceId
+                            )
+                        }
                     }
                     lastResult = result
                     // If Jim Catering scan, show note input screen
