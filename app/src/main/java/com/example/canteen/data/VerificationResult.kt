@@ -12,7 +12,8 @@ sealed class VerificationResult {
     data class Failure(
         val reason: Reason,
         val scannedName: String,
-        val company: String? = null
+        val company: String? = null,
+        val timestamp: Long = 0L
     ) : VerificationResult() {
         enum class Reason {
             LIMIT_REACHED,

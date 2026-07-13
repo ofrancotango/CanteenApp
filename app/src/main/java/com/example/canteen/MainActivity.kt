@@ -276,7 +276,6 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                         return@QRScannerScreen
                     }
                     val result = repository.verifyAccess(code)
-                    val scanTimestamp = System.currentTimeMillis()
                     when (result) {
                         is VerificationResult.Success -> {
                             val matchedName = result.matchedName.removeSuffix(" (BONUS)")
@@ -288,7 +287,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                                 name = matchedName,
                                 company = company,
                                 result = if (isBonus) "BONUS" else "SUCCESS",
-                                timestamp = scanTimestamp,
+                                timestamp = result.timestamp,
                                 deviceId = deviceId
                             )
                         }
@@ -297,7 +296,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                                 name = result.scannedName,
                                 company = result.company ?: "",
                                 result = "DENIED",
-                                timestamp = scanTimestamp,
+                                timestamp = result.timestamp,
                                 deviceId = deviceId
                             )
                         }

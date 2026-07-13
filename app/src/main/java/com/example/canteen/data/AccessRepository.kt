@@ -317,7 +317,8 @@ class AccessRepository(val context: Context) {
             logEvent(timestamp, scannedInput, null, null, "DENIED", "UNKNOWN_USER")
             return VerificationResult.Failure(
                 VerificationResult.Failure.Reason.UNKNOWN_USER,
-                scannedInput
+                scannedInput,
+                timestamp = timestamp
             )
         }
         
@@ -366,7 +367,8 @@ class AccessRepository(val context: Context) {
              return VerificationResult.Failure(
                 VerificationResult.Failure.Reason.BLACK_LISTED,
                 scannedInput,
-                company
+                company,
+                timestamp = timestamp
             )
         }
         
@@ -379,7 +381,8 @@ class AccessRepository(val context: Context) {
              return VerificationResult.Failure(
                 VerificationResult.Failure.Reason.BLACK_LISTED, 
                 scannedInput,
-                company
+                company,
+                timestamp = timestamp
             )
         }
 
@@ -439,7 +442,8 @@ class AccessRepository(val context: Context) {
                 originalName = scannedInput,
                 normalizedName = normalizedInput,
                 matchedName = employee.name,
-                isFuzzyMatch = isFuzzy
+                isFuzzyMatch = isFuzzy,
+                timestamp = timestamp
             )
         } else {
             // LIMIT REACHED - CHECK BONUS (per shift)
@@ -469,14 +473,16 @@ class AccessRepository(val context: Context) {
                     originalName = scannedInput,
                     normalizedName = normalizedInput,
                     matchedName = employee.name + " (BONUS)",
-                    isFuzzyMatch = isFuzzy
+                    isFuzzyMatch = isFuzzy,
+                    timestamp = timestamp
                 )
             } else {
                 // HARD DENY
                 logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "LIMIT_REACHED")
                 return VerificationResult.Failure(
                     VerificationResult.Failure.Reason.LIMIT_REACHED,
-                    scannedInput
+                    scannedInput,
+                    timestamp = timestamp
                 )
             }
         }
