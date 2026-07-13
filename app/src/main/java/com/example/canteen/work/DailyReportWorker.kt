@@ -69,6 +69,7 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
             if (events.isEmpty()) return Result.success()
 
             val dateStr = SimpleDateFormat("EEEE, MMMM dd yyyy", Locale.ENGLISH).format(Date(startOfDay))
+            val csvDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(startOfDay))
             val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
 
             val admitted = events.count { it.result == "SUCCESS" }
@@ -193,7 +194,9 @@ $notesSection
 </div>
 </body></html>""".trimIndent()
 
-            sendEmail("Canteen Report – $dateStr", html)
+            val csvData = EmailSender.buildCsv(events)
+            val csvFilename = "scan_logs_$csvDate.csv"
+            sendEmail("Canteen Report – $dateStr", html, csvData, csvFilename)
             markSent()
             scheduleNextDay()
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -232,7 +235,7 @@ $notesSection
         )
     }
 
-    private fun sendEmail(subject: String, htmlBody: String) {
+    private fun sendEmail(subject: String, htmlBody: String, csvData: String, csvFilename: String) {
         val props = Properties().apply {
             put("mail.smtp.host", EmailConfig.SMTP_HOST)
             put("mail.smtp.port", EmailConfig.SMTP_PORT.toString())
@@ -248,8 +251,16 @@ $notesSection
             setFrom(InternetAddress(EmailConfig.SENDER_EMAIL, "Canteen Access"))
             setRecipients(Message.RecipientType.TO, InternetAddress.parse(EmailConfig.RECIPIENT_EMAIL))
             this.subject = subject
-            val part = MimeBodyPart().apply { setContent(htmlBody, "text/html; charset=utf-8") }
-            setContent(MimeMultipart().apply { addBodyPart(part) })
+            val multipart = MimeMultipart().apply {
+                addBodyPart(MimeBodyPart().apply { setContent(htmlBody, "text/html; charset=utf-8") })
+                addBodyPart(MimeBodyPart().apply {
+                    dataHandler = javax.activation.DataHandler(
+                        javax.mail.util.ByteArrayDataSource(csvData.toByteArray(), "text/csv")
+                    )
+                    fileName = csvFilename
+                })
+            }
+            setContent(multipart)
         }.let { Transport.send(it) }
     }
 }
