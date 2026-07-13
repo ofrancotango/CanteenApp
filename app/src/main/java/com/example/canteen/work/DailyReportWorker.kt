@@ -132,26 +132,27 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
                 "</tr>"
             }
 
-            val shiftSummary = if (nightEvents.isNotEmpty()) {
-                """
+            val dayWorkers = dayEvents.map { it.matchedName ?: it.scannedCode }.distinct().size
+            val nightWorkers = nightEvents.map { it.matchedName ?: it.scannedCode }.distinct().size
+
+            val shiftSummary = """
   <div style="padding:0 32px 24px;">
     <div style="background:#FAFAFA;border-radius:10px;padding:16px 20px;border:1px solid #F0F0F0;">
-      <p style="margin:0 0 12px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Shift Breakdown</p>
+      <p style="margin:0 0 12px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Lavoratori per turno</p>
       <div style="display:flex;gap:16px;">
         <div style="flex:1;background:#F0FDF4;border-radius:6px;padding:12px 14px;">
           <div style="font-size:11px;color:#888;margin-bottom:2px;">DAY (06-15)</div>
-          <div style="font-size:18px;font-weight:700;color:#22C55E;">${dayAdmitted + dayBonus}</div>
-          <div style="font-size:10px;color:#aaa;">A ${dayAdmitted} / B ${dayBonus} / D ${dayDenied}</div>
+          <div style="font-size:18px;font-weight:700;color:#22C55E;">${dayWorkers}</div>
+          <div style="font-size:10px;color:#aaa;">${dayAdmitted + dayBonus} accessi / ${dayDenied} negati</div>
         </div>
         <div style="flex:1;background:#EFF6FF;border-radius:6px;padding:12px 14px;">
           <div style="font-size:11px;color:#888;margin-bottom:2px;">NIGHT (15-21:30)</div>
-          <div style="font-size:18px;font-weight:700;color:#2563EB;">${nightAdmitted + nightBonus}</div>
-          <div style="font-size:10px;color:#aaa;">A ${nightAdmitted} / B ${nightBonus} / D ${nightDenied}</div>
+          <div style="font-size:18px;font-weight:700;color:#2563EB;">${nightWorkers}</div>
+          <div style="font-size:10px;color:#aaa;">${nightAdmitted + nightBonus} accessi / ${nightDenied} negati</div>
         </div>
       </div>
     </div>
   </div>"""
-            } else ""
 
             val html = """
 <!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F8F8F8;margin:0;padding:24px;">
