@@ -54,6 +54,9 @@ import com.example.canteen.ui.theme.AppText
 import com.example.canteen.ui.theme.AppWhite
 import com.example.canteen.ui.theme.SuccessGreen
 import com.example.canteen.ui.theme.ErrorRed
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun StatsScreen(
@@ -166,7 +169,8 @@ fun StatsScreen(
                             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                                 try {
                                     val csvData = repository.exportLogs()
-                                    val filename = "scan_logs_${System.currentTimeMillis()}.csv"
+                                    val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                                    val filename = "scan_logs_${dateStr}.csv"
                                     val file = java.io.File(context.cacheDir, filename)
                                     file.writeText(csvData)
                                     val uri = androidx.core.content.FileProvider.getUriForFile(

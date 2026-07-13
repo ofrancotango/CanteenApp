@@ -707,19 +707,25 @@ class AccessRepository(val context: Context) {
         return withContext(Dispatchers.IO) {
             val events = scanEventDao.getAll()
             val sb = StringBuilder()
-            sb.append("ID;Timestamp;Time;Code;MatchedName;Company;Result;Reason;Shift;Note\n")
+            sb.append("ID;Time;Code;MatchedName;Company;Result;Reason;Shift;Note\n")
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
             fun csvField(value: String?): String {
-                val raw = value ?: ""
-                return if (raw.contains(";") || raw.contains("\"") || raw.contains("\n")) {
+                val raw = (value ?: "")
+                    .trim()
+                    .replace("\r\n", " ")
+                    .replace("\n", " ")
+                    .replace("\r", " ")
+                    .replace("\t", " ")
+                    .replace(Regex("\\s+"), " ")
+                return if (raw.contains(";") || raw.contains("\"")) {
                     "\"" + raw.replace("\"", "\"\"") + "\""
                 } else raw
             }
 
             events.forEach { e ->
                 val timeStr = sdf.format(Date(e.timestamp))
-                sb.append("${e.id};${e.timestamp};$timeStr;${csvField(e.scannedCode)};${csvField(e.matchedName)};${csvField(e.company)};${csvField(e.result)};${csvField(e.reason)};${csvField(e.shift)};${csvField(e.note)}\n")
+                sb.append("${e.id};$timeStr;${csvField(e.scannedCode)};${csvField(e.matchedName)};${csvField(e.company)};${csvField(e.result)};${csvField(e.reason)};${csvField(e.shift)};${csvField(e.note)}\n")
             }
             sb.toString()
         }
