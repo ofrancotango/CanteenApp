@@ -29,16 +29,47 @@ object EmailSender {
         val bonus    = events.count { it.result == "BONUS" }
         val denied   = events.count { it.result == "DENIED" }
 
+        val noteEvents = events.filter { !it.note.isNullOrBlank() }
+        val notesSection = if (noteEvents.isNotEmpty()) {
+            val noteRows = noteEvents.joinToString("") { e ->
+                val name = e.matchedName ?: e.scannedCode
+                val time = timeFmt.format(Date(e.timestamp))
+                "<tr>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;'>$name</td>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;'>${e.company ?: ""}</td>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#B45309;font-style:italic;'>${e.note}</td>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;'>$time</td>" +
+                "</tr>"
+            }
+            """
+  <div style="padding:0 32px 24px;">
+    <div style="background:#FFFBEB;border-radius:10px;padding:16px 20px;border:1px solid #FEF3C7;">
+      <p style="margin:0 0 12px;font-size:12px;color:#B45309;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Jim Catering Notes</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#FEF3C7;">
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#B45309;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Name</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#B45309;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Company</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#B45309;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Note</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#B45309;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Time</th>
+        </tr></thead>
+        <tbody>$noteRows</tbody>
+      </table>
+    </div>
+  </div>"""
+        } else ""
+
         val rows = events.joinToString("") { e ->
             val color = when (e.result) {
                 "SUCCESS" -> "#22C55E"
                 "BONUS"   -> "#F59E0B"
                 else      -> "#EF4444"
             }
+            val noteCell = if (e.note != null) "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#666;font-size:11px;font-style:italic;'>${e.note}</td>" else "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#aaa;font-size:11px;'>-</td>"
             "<tr>" +
             "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;'>${e.matchedName ?: e.scannedCode}</td>" +
             "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;'>${e.company ?: ""}</td>" +
             "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;font-weight:600;color:$color;'>${e.result}</td>" +
+            noteCell +
             "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;'>${timeFmt.format(Date(e.timestamp))}</td>" +
             "</tr>"
         }
@@ -64,12 +95,14 @@ object EmailSender {
       <div style="font-size:11px;color:#888;margin-top:2px;letter-spacing:0.5px;">DENIED</div>
     </div>
   </div>
+$notesSection
   <div style="padding:0 32px 32px;">
     <table style="width:100%;border-collapse:collapse;">
       <thead><tr style="background:#F8F8F8;">
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Name</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Company</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Result</th>
+        <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Note</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Time</th>
       </tr></thead>
       <tbody>$rows</tbody>
