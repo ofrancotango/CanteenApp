@@ -149,8 +149,17 @@ class AccessRepository(val context: Context) {
         val minute = calendar.get(Calendar.MINUTE)
         val time = hour * 60 + minute // minutes since midnight
         val dayEnd = 15 * 60          // 15:00
-        val nightEnd = 21 * 60 + 30   // 21:30
         return if (time in 360..<dayEnd) "DAY" else "NIGHT"
+    }
+
+    // Returns true ONLY during the actual night shift window (15:00–21:30).
+    // Used to enable free-access mode; deliberately excludes late night / early morning.
+    private fun isActualNightShift(): Boolean {
+        val calendar = Calendar.getInstance()
+        val time = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        val nightStart = 15 * 60      // 15:00
+        val nightEnd   = 21 * 60 + 30 // 21:30
+        return time in nightStart..<nightEnd
     }
 
     private fun getStartOfDayTimestamp(): Long {
@@ -311,9 +320,36 @@ class AccessRepository(val context: Context) {
             }
         }
         
-        // --- 1. UNKNOWN USER ---
+        val shift = getCurrentShift()
+
+        // --- 0. NIGHT SHIFT FREE ACCESS (15:00–21:30) ---
+        // During the actual night shift window ALL rules are suspended — everyone passes,
+        // including unrecognised badge codes.
+        if (isActualNightShift()) {
+            GlobalScope.launch(Dispatchers.IO) {
+                syncStatsToDb()
+                updateScanCountFlow()
+                scanEventDao.insert(ScanEvent(
+                    timestamp = timestamp,
+                    scannedCode = scannedInput,
+                    matchedName = employee?.name ?: scannedInput,
+                    company = employee?.company ?: "NIGHT_ACCESS",
+                    result = "SUCCESS",
+                    reason = "NIGHT_FREE_ACCESS",
+                    shift = shift
+                ))
+            }
+            return VerificationResult.Success(
+                originalName = scannedInput,
+                normalizedName = normalizedInput,
+                matchedName = employee?.name ?: scannedInput,
+                isFuzzyMatch = isFuzzy,
+                timestamp = timestamp
+            )
+        }
+
+        // --- 1. UNKNOWN USER (only outside night shift) ---
         if (employee == null) {
-            // Not found at all
             logEvent(timestamp, scannedInput, null, null, "DENIED", "UNKNOWN_USER")
             return VerificationResult.Failure(
                 VerificationResult.Failure.Reason.UNKNOWN_USER,
@@ -321,12 +357,15 @@ class AccessRepository(val context: Context) {
                 timestamp = timestamp
             )
         }
-        
+
         // 3. Check Companies
         val company = employee.company.trim()
         val lowerCompany = company.lowercase()
-        
-        // Bypass for specific users if needed (e.g. correct company data issues)
+
+        // --- Manual Whitelist: employees added via the Whitelist Manager have priority over
+        //     every company rule. Their company is "ManualWhitelist" (default in the UI).
+        //     Also includes the legacy hardcoded SPECIAL_WHITELIST names.
+        val isManualWhitelisted = company.equals("ManualWhitelist", ignoreCase = true)
         val SPECIAL_WHITELIST = setOf(
             "Cristian De Domenico",
             "Tudor Marian",
@@ -347,7 +386,8 @@ class AccessRepository(val context: Context) {
             "Sebastian Tomaszkowicz",
             "Jim Catering"
         )
-        val isSpecialWhitelisted = SPECIAL_WHITELIST.any { it.equals(employee.name.trim(), ignoreCase = true) }
+        val isSpecialWhitelisted = isManualWhitelisted ||
+            SPECIAL_WHITELIST.any { it.equals(employee.name.trim(), ignoreCase = true) }
 
         // --- 2. BLACKLIST ---
         val isCompanyBlacklisted = FORBIDDEN_COMPANIES.any { it.equals(company, ignoreCase = true) }
@@ -387,7 +427,6 @@ class AccessRepository(val context: Context) {
         }
 
         // --- 4. DAILY LIMITS + BONUS ---
-        val shift = getCurrentShift()
         val isUnlimited = company.equals("JimCatering", ignoreCase = true) ||
             employee.name.trim().equals("Jim Catering", ignoreCase = true)
 
