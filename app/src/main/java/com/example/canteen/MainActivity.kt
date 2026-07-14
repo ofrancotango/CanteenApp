@@ -244,12 +244,15 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         return
     }
 
-    // todayAdmittedCount and todayDeniedCount now come from repository Flows (single source of truth from DB)
+    // Derive admitted-entries count from Firebase cloud scans so all devices see the same number.
+    // cloudScans is the real-time Firebase list; local todayAdmittedCount is kept as fallback.
+    val todayCloudAdmittedCount = cloudScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
+        .takeIf { cloudScans.isNotEmpty() } ?: todayAdmittedCount
 
     when (currentScreen) {
         Screen.HOME -> {
             HomeScreen(
-                scansToday = todayAdmittedCount,
+                scansToday = todayCloudAdmittedCount,
                 scanStatus = "$scanStatus (Last Err: ${repository.lastError ?: "None"})",
                 expectedAttendance = expectedAttendance,
                 deniedCount = todayDeniedCount,
@@ -313,7 +316,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                     noteScanTargetTimestamp = null
                     currentScreen = Screen.HOME
                 },
-                scanCount = todayAdmittedCount
+                scanCount = todayCloudAdmittedCount
             )
         }
         Screen.RESULT -> {
@@ -336,12 +339,12 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                                 repository.addNoteToJimCateringScan(result.timestamp, note)
                             }
                             lastResult = null
-                            currentScreen = Screen.HOME
+                            currentScreen = Screen.SCANNER // go straight to next scan
                         }
                     },
                     onSkip = {
                         lastResult = null
-                        currentScreen = Screen.HOME
+                        currentScreen = Screen.SCANNER // go straight to next scan
                     },
                     onScanBadgeForNote = {
                         noteScanTargetTimestamp = result.timestamp

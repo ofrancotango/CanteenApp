@@ -40,6 +40,10 @@ class AccessRepository(val context: Context) {
     private val _currentScanCount = MutableStateFlow(0)
     val currentScanCount: StateFlow<Int> = _currentScanCount
 
+    // Names of employees added via Whitelist Manager (Firebase manualEmployees node).
+    // Tracked separately so priority applies regardless of what company string is stored.
+    private var manualWhitelistedNames: Set<String> = emptySet()
+
     // Real-time list of ALL today's scans — auto-refreshed via timer in MainActivity
     private val _todayScans = MutableStateFlow<List<ScanEvent>>(emptyList())
     val todayScans: StateFlow<List<ScanEvent>> = _todayScans
@@ -94,6 +98,8 @@ class AccessRepository(val context: Context) {
             if (norm.isNotBlank()) current[norm] = emp
         }
         whitelist = current
+        // Track every name in the manual list so the priority check works regardless of company value
+        manualWhitelistedNames = employees.map { it.name.trim().lowercase() }.toSet()
     }
     
     // Bonus config
@@ -365,7 +371,10 @@ class AccessRepository(val context: Context) {
         // --- Manual Whitelist: employees added via the Whitelist Manager have priority over
         //     every company rule. Their company is "ManualWhitelist" (default in the UI).
         //     Also includes the legacy hardcoded SPECIAL_WHITELIST names.
+        // An employee is "manually whitelisted" if their company tag is "ManualWhitelist" OR
+        // their name is in the Firebase manualEmployees node (regardless of stored company).
         val isManualWhitelisted = company.equals("ManualWhitelist", ignoreCase = true)
+            || manualWhitelistedNames.contains(employee.name.trim().lowercase())
         val SPECIAL_WHITELIST = setOf(
             "Cristian De Domenico",
             "Tudor Marian",
