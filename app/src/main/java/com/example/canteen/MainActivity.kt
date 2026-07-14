@@ -43,6 +43,7 @@ import com.example.canteen.ui.QRScannerScreen
 import com.example.canteen.ui.ResultScreen
 import com.example.canteen.ui.ServiceDisabledScreen
 import com.example.canteen.ui.NoteInputScreen
+import com.example.canteen.ui.NoteTakenScreen
 import com.example.canteen.ui.StatsScreen
 import com.example.canteen.ui.TodayUsersScreen
 import com.example.canteen.ui.WhitelistManagerScreen
@@ -96,6 +97,7 @@ enum class Screen {
     SCANNER,
     RESULT,
     NOTE_INPUT,
+    NOTE_TAKEN,
     STATS,
     TODAY_USERS,
     WHITELIST_MANAGER,
@@ -274,7 +276,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                         noteScanTargetTimestamp = null
                         scope.launch {
                             repository.addNoteToJimCateringScan(targetTs, code)
-                            currentScreen = Screen.SCANNER // go straight to next scan
+                            currentScreen = Screen.NOTE_TAKEN
                         }
                         return@QRScannerScreen
                     }
@@ -354,6 +356,12 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
             } else {
                 currentScreen = Screen.HOME
             }
+        }
+        Screen.NOTE_TAKEN -> {
+            NoteTakenScreen(
+                onNextClick = { currentScreen = Screen.SCANNER },
+                onHomeClick = { currentScreen = Screen.HOME }
+            )
         }
         Screen.STATS -> {
             val stats = repository.getStats()
