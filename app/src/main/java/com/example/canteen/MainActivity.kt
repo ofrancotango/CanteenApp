@@ -203,7 +203,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
             onSendTestEmail = {
                 coroutineScope.launch {
                     try {
-                        android.widget.Toast.makeText(context, "Mail in invio...", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "Sending email...", android.widget.Toast.LENGTH_SHORT).show()
                         val db = AppDatabase.getDatabase(context)
                         val dao = db.scanEventDao()
                         val calendar = java.util.Calendar.getInstance().apply {
@@ -216,15 +216,15 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                         val end = start + 24 * 60 * 60 * 1000L
                         val events = dao.getEventsByDate(start, end)
                         if (events.isEmpty()) {
-                            android.widget.Toast.makeText(context, "Nessuna scansione oggi, niente da inviare.", android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(context, "No scans today, nothing to send.", android.widget.Toast.LENGTH_LONG).show()
                         } else {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 EmailSender.sendDailyReport(context, events)
                             }
-                            android.widget.Toast.makeText(context, "Mail inviata con successo!", android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(context, "Email sent successfully!", android.widget.Toast.LENGTH_LONG).show()
                         }
                     } catch (e: Exception) {
-                        android.widget.Toast.makeText(context, "Errore invio mail: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, "Email error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                     }
                 }
             },
@@ -471,7 +471,7 @@ private fun AdminDialog(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
                     ) {
-                        Text("\uD83D\uDC64  Gestisci Whitelist Manuale")
+                        Text("\uD83D\uDC64  Manage Manual Whitelist")
                     }
 
                     // Company Rules button
@@ -480,7 +480,7 @@ private fun AdminDialog(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
                     ) {
-                        Text("\uD83C\uDFE2  Gestisci Regole Aziende")
+                        Text("\uD83C\uDFE2  Manage Company Rules")
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -491,10 +491,10 @@ private fun AdminDialog(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF10B981))
                     ) {
-                        Text("\u2709\uFE0F  Invia Mail Test")
+                        Text("\u2709\uFE0F  Send Test Email")
                     }
                     Text(
-                        text = "Invia subito la mail di report per verificare che funzioni.",
+                        text = "Send today's report immediately to verify it works.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )

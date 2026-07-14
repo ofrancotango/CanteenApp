@@ -118,13 +118,13 @@ fun WhitelistManagerScreen(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Whitelist Manuale",
+                    text = "Manual Whitelist",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = AppText
                 )
                 Text(
-                    text = "${employees.size} dipendenti aggiunti manualmente",
+                    text = "${employees.size} manually added employees",
                     style = MaterialTheme.typography.labelSmall,
                     color = AppMuted
                 )
@@ -153,7 +153,7 @@ fun WhitelistManagerScreen(
                 .padding(12.dp)
         ) {
             Text(
-                text = "\uD83D\uDCF1 Le modifiche si sincronizzano automaticamente su tutti i dispositivi.",
+                text = "\uD83D\uDCF1 Changes sync automatically across all devices.",
                 style = MaterialTheme.typography.labelSmall,
                 color = AppAccent.copy(alpha = 0.8f),
                 lineHeight = 18.sp
@@ -170,9 +170,9 @@ fun WhitelistManagerScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("\uD83D\uDC64", fontSize = 40.sp)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Nessun dipendente manuale", style = MaterialTheme.typography.titleMedium, color = AppMuted)
+                    Text("No manual employees", style = MaterialTheme.typography.titleMedium, color = AppMuted)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("Usa + per aggiungerne uno", style = MaterialTheme.typography.bodySmall, color = AppMuted.copy(alpha = 0.5f))
+                    Text("Tap + to add one", style = MaterialTheme.typography.bodySmall, color = AppMuted.copy(alpha = 0.5f))
                 }
             }
         } else {
@@ -257,19 +257,19 @@ private fun AddEmployeeDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = AppSurface,
-        title = { Text("Aggiungi dipendente", color = AppText, fontWeight = FontWeight.Bold) },
+        title = { Text("Add employee", color = AppText, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Il dipendente sarà aggiunto alla whitelist su tutti i dispositivi.",
+                    "The employee will be added to the whitelist on all devices.",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppMuted
                 )
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nome completo *") },
-                    placeholder = { Text("es. Mario Rossi") },
+                    label = { Text("Full name *") },
+                    placeholder = { Text("e.g. Mario Rossi") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -286,8 +286,8 @@ private fun AddEmployeeDialog(
                 OutlinedTextField(
                     value = company,
                     onValueChange = { company = it },
-                    label = { Text("Azienda") },
-                    placeholder = { Text("es. Max Streicher") },
+                    label = { Text("Company") },
+                    placeholder = { Text("e.g. Max Streicher") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -310,10 +310,10 @@ private fun AddEmployeeDialog(
                 },
                 enabled = isValid,
                 colors = ButtonDefaults.buttonColors(containerColor = AppAccent)
-            ) { Text("Aggiungi") }
+            ) { Text("Add") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annulla", color = AppMuted) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = AppMuted) }
         }
     )
 }

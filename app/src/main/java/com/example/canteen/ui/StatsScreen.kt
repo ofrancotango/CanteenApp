@@ -376,7 +376,7 @@ private fun DayDetailDialog(
 
             if (events.isEmpty()) {
                 Text(
-                    text = "Nessuna scansione per questo giorno.",
+                    text = "No scans for this day.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppMuted
                 )
@@ -462,7 +462,7 @@ private fun DayDetailDialog(
                 onClick = onDismiss,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
-                Text("Chiudi", color = AppAccent)
+                Text("Close", color = AppAccent)
             }
         }
     }

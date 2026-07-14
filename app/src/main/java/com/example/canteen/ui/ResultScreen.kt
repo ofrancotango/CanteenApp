@@ -48,7 +48,7 @@ fun ResultScreen(
     val bgColor = if (isSuccess) SuccessBackground else ErrorBackground
     val accentColor = if (isSuccess) SuccessGreen else ErrorRed
     val title = if (isSuccess) "ENJOY YOUR MEAL" else "ACCESS DENIED"
-    val subtitle = if (isSuccess) "Accesso consentito" else "Accesso negato"
+    val subtitle = if (isSuccess) "Access granted" else "Access denied"
 
     val detailsText = when (result) {
         is VerificationResult.Success -> {

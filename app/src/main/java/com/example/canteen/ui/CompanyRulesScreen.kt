@@ -114,13 +114,13 @@ fun CompanyRulesScreen(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Regole Aziende",
+                    text = "Company Rules",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = AppText
                 )
                 Text(
-                    text = "${allowedCompanies.size} consentite · ${forbiddenCompanies.size} vietate",
+                    text = "${allowedCompanies.size} allowed · ${forbiddenCompanies.size} blocked",
                     style = MaterialTheme.typography.labelSmall,
                     color = AppMuted
                 )
@@ -138,7 +138,7 @@ fun CompanyRulesScreen(
                 .padding(12.dp)
         ) {
             Text(
-                text = "\uD83D\uDCF1 Le modifiche si sincronizzano automaticamente su tutti i dispositivi.",
+                text = "\uD83D\uDCF1 Changes sync automatically across all devices.",
                 style = MaterialTheme.typography.labelSmall,
                 color = AppAccent.copy(alpha = 0.8f),
                 lineHeight = 18.sp
@@ -155,7 +155,7 @@ fun CompanyRulesScreen(
             // ALLOWED section
             item {
                 SectionHeader(
-                    title = "CONSENTITE",
+                    title = "ALLOWED",
                     count = allowedCompanies.size,
                     color = SuccessGreen,
                     onAdd = { showAddDialog = CompanyStatus.ALLOWED }
@@ -167,7 +167,7 @@ fun CompanyRulesScreen(
                     name = company,
                     status = CompanyStatus.ALLOWED,
                     onToggle = { onRemoveAllowed(company) },
-                    toggleLabel = "Rimuovi"
+                    toggleLabel = "Remove"
                 )
                 Spacer(modifier = Modifier.height(6.dp))
             }
@@ -177,7 +177,7 @@ fun CompanyRulesScreen(
             // FORBIDDEN section
             item {
                 SectionHeader(
-                    title = "VIETATE",
+                    title = "BLOCKED",
                     count = forbiddenCompanies.size,
                     color = ErrorRed,
                     onAdd = { showAddDialog = CompanyStatus.FORBIDDEN }
@@ -189,7 +189,7 @@ fun CompanyRulesScreen(
                     name = company,
                     status = CompanyStatus.FORBIDDEN,
                     onToggle = { onRemoveForbidden(company) },
-                    toggleLabel = "Rimuovi"
+                    toggleLabel = "Remove"
                 )
                 Spacer(modifier = Modifier.height(6.dp))
             }
@@ -314,24 +314,24 @@ private fun AddCompanyDialog(
     var name by remember { mutableStateOf("") }
     val isValid = name.trim().length >= 2
     val color = if (status == CompanyStatus.ALLOWED) SuccessGreen else ErrorRed
-    val label = if (status == CompanyStatus.ALLOWED) "Consentita" else "Vietata"
+    val label = if (status == CompanyStatus.ALLOWED) "Allowed" else "Blocked"
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = AppSurface,
-        title = { Text("Aggiungi azienda $label", color = AppText, fontWeight = FontWeight.Bold) },
+        title = { Text("Add $label company", color = AppText, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Questa azienda sarà aggiunta alla lista $label su tutti i dispositivi.",
+                    "This company will be added to the $label list on all devices.",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppMuted
                 )
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nome azienda *") },
-                    placeholder = { Text("es. Max Streicher") },
+                    label = { Text("Company name *") },
+                    placeholder = { Text("e.g. Max Streicher") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -352,10 +352,10 @@ private fun AddCompanyDialog(
                 onClick = { onConfirm(name.trim()) },
                 enabled = isValid,
                 colors = ButtonDefaults.buttonColors(containerColor = color)
-            ) { Text("Aggiungi") }
+            ) { Text("Add") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annulla", color = AppMuted) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = AppMuted) }
         }
     )
 }

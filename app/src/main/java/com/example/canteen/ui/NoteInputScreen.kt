@@ -80,7 +80,7 @@ fun NoteInputScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Jim Catering — Accesso Consentito",
+                text = "Jim Catering — Access Granted",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = AppText,
@@ -90,7 +90,7 @@ fun NoteInputScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Aggiungi una nota opzionale (es. chi sta facendo passare)",
+                text = "Add an optional note (e.g. who they are letting in)",
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppMuted,
                 textAlign = TextAlign.Center
@@ -101,8 +101,8 @@ fun NoteInputScreen(
             OutlinedTextField(
                 value = noteText,
                 onValueChange = { noteText = it },
-                label = { Text("Nota / Nome") },
-                placeholder = { Text("Scrivi un nome o scannerizza un badge...") },
+                label = { Text("Note / Name") },
+                placeholder = { Text("Type a name or scan a badge...") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp)
@@ -123,7 +123,7 @@ fun NoteInputScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "\ud83d\uddbc\ufe0f Scannerizza badge per nota",
+                    text = "\ud83d\uddbc\ufe0f Scan badge for note",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
@@ -143,7 +143,7 @@ fun NoteInputScreen(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    text = if (noteText.isBlank()) "Salva senza nota" else "Salva nota",
+                    text = if (noteText.isBlank()) "Save without note" else "Save note",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -159,7 +159,7 @@ fun NoteInputScreen(
                 colors = ButtonDefaults.textButtonColors(contentColor = AppMuted)
             ) {
                 Text(
-                    text = "Salta e vai a Home",
+                    text = "Skip and go to Home",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )

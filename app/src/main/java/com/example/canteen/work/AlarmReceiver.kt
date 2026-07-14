@@ -94,13 +94,13 @@ class AlarmReceiver : BroadcastReceiver() {
                             EmailSender.sendDailyReport(context, events)
                             markSent(context) // record locally so the fast-path works next time
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "Mail inviata con successo!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Email sent successfully!", Toast.LENGTH_LONG).show()
                             }
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Errore invio mail: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Email error: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                     } finally {
                         EmailAlarmScheduler.schedule(context)

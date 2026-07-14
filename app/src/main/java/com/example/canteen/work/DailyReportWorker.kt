@@ -136,17 +136,17 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
             val shiftSummary = """
   <div style="padding:0 32px 24px;">
     <div style="background:#FAFAFA;border-radius:10px;padding:16px 20px;border:1px solid #F0F0F0;">
-      <p style="margin:0 0 12px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Entrate per turno</p>
+      <p style="margin:0 0 12px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Entries by shift</p>
       <div style="display:flex;gap:16px;">
         <div style="flex:1;background:#F0FDF4;border-radius:6px;padding:12px 14px;">
           <div style="font-size:11px;color:#888;margin-bottom:2px;">DAY (06-15)</div>
           <div style="font-size:18px;font-weight:700;color:#22C55E;">${dayAdmitted + dayBonus}</div>
-          <div style="font-size:10px;color:#aaa;">${dayAdmitted} ammessi / ${dayBonus} bonus / ${dayDenied} negati</div>
+          <div style="font-size:10px;color:#aaa;">${dayAdmitted} admitted / ${dayBonus} bonus / ${dayDenied} denied</div>
         </div>
         <div style="flex:1;background:#EFF6FF;border-radius:6px;padding:12px 14px;">
           <div style="font-size:11px;color:#888;margin-bottom:2px;">NIGHT (15-21:30)</div>
           <div style="font-size:18px;font-weight:700;color:#2563EB;">${nightAdmitted + nightBonus}</div>
-          <div style="font-size:10px;color:#aaa;">${nightAdmitted} ammessi / ${nightBonus} bonus / ${nightDenied} negati</div>
+          <div style="font-size:10px;color:#aaa;">${nightAdmitted} admitted / ${nightBonus} bonus / ${nightDenied} denied</div>
         </div>
       </div>
     </div>
@@ -200,13 +200,13 @@ $notesSection
             markSent()
             scheduleNextDay()
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                android.widget.Toast.makeText(applicationContext, "Mail inviata con successo!", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(applicationContext, "Email sent successfully!", android.widget.Toast.LENGTH_LONG).show()
             }
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                android.widget.Toast.makeText(applicationContext, "Errore invio mail: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(applicationContext, "Email error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
             }
             Result.retry()
         }
