@@ -274,7 +274,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                         noteScanTargetTimestamp = null
                         scope.launch {
                             repository.addNoteToJimCateringScan(targetTs, code)
-                            currentScreen = Screen.HOME
+                            currentScreen = Screen.SCANNER // go straight to next scan
                         }
                         return@QRScannerScreen
                     }
