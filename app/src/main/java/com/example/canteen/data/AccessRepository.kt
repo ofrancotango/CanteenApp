@@ -49,11 +49,19 @@ class AccessRepository(val context: Context) {
         get() = prefs.getBoolean("area2_mode_active", false)
         set(value) { prefs.edit().putBoolean("area2_mode_active", value).apply() }
 
-    // Area 2 employee names (normalized) — set from Firebase via applyArea2Employees()
-    private var area2EmployeeNames: Set<String> = emptySet()
+    // Area 2 employee names (raw) — set from Firebase via applyArea2Employees().
+    // Matching is fuzzy via smartTokenMatch so "Mario Rossi" ↔ "Rossi Mario" works.
+    private var area2EmployeeNames: List<String> = emptyList()
 
     fun applyArea2Employees(employees: List<FirebaseEmployee>) {
-        area2EmployeeNames = employees.map { it.name.trim().lowercase() }.toSet()
+        area2EmployeeNames = employees.map { it.name.trim() }.filter { it.isNotBlank() }
+    }
+
+    private fun isInArea2List(employeeName: String): Boolean {
+        return area2EmployeeNames.any { area2Name ->
+            StringNormalizer.smartTokenMatch(employeeName, area2Name) ||
+            StringNormalizer.smartTokenMatch(area2Name, employeeName)
+        }
     }
 
     // Real-time list of ALL today's scans — auto-refreshed via timer in MainActivity
@@ -324,7 +332,7 @@ class AccessRepository(val context: Context) {
 
         // ── Area 2 mode: only Area 2 employees (+ Jim Catering) are allowed ─
         if (isArea2Mode) {
-            val isInArea2List = area2EmployeeNames.contains(employee.name.trim().lowercase())
+            val isInArea2List = isInArea2List(employee.name)
 
             if (!isInArea2List && !isUnlimited) {
                 logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "NOT_IN_AREA2", currentArea)
