@@ -69,6 +69,8 @@ fun HomeScreen(
     scanStatus: String,
     expectedAttendance: Int,
     deniedCount: Int,
+    dayCount: Int,
+    nightCount: Int,
     onScanClick: () -> Unit,
     onStatsClick: () -> Unit,
     onTodayUsersClick: () -> Unit,
@@ -220,7 +222,74 @@ fun HomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Day / Night live counters
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Day counter
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(androidx.compose.ui.graphics.Color(0xFFFFFBEB))
+                    .border(1.dp, androidx.compose.ui.graphics.Color(0xFFFDE68A), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "☀",
+                        fontSize = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "$dayCount",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = androidx.compose.ui.graphics.Color(0xFFB45309)
+                    )
+                    Text(
+                        text = "DAY",
+                        style = MaterialTheme.typography.labelSmall,
+                        letterSpacing = 1.sp,
+                        color = androidx.compose.ui.graphics.Color(0xFFB45309).copy(alpha = 0.7f)
+                    )
+                }
+            }
+            // Night counter
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(androidx.compose.ui.graphics.Color(0xFFEFF6FF))
+                    .border(1.dp, androidx.compose.ui.graphics.Color(0xFFBFDBFE), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "🌙",
+                        fontSize = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "$nightCount",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = androidx.compose.ui.graphics.Color(0xFF1D4ED8)
+                    )
+                    Text(
+                        text = "NIGHT",
+                        style = MaterialTheme.typography.labelSmall,
+                        letterSpacing = 1.sp,
+                        color = androidx.compose.ui.graphics.Color(0xFF1D4ED8).copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Main scan button
         androidx.compose.material3.FilledIconButton(
