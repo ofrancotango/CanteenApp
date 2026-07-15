@@ -133,18 +133,12 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // ── Area 2 state ─────────────────────────────────────────────────────────
-    // Firebase is the cross-device source of truth; local SharedPrefs makes it sticky across restarts.
-    val firebaseArea2Mode by firebaseRepo.isArea2Mode.collectAsState()
+    // Mode is LOCAL to this device only (SharedPrefs). The employee list syncs via Firebase.
     val area2Employees by firebaseRepo.area2Employees.collectAsState()
 
-    // mutableStateOf initialized from sticky SharedPrefs (so offline restarts load correctly)
+    // Initialised from sticky SharedPrefs — survives restarts and offline use.
     var isArea2Mode by remember { mutableStateOf(repository.isArea2Mode) }
 
-    // Sync Firebase area2Mode → local prefs + composable State
-    LaunchedEffect(firebaseArea2Mode) {
-        repository.isArea2Mode = firebaseArea2Mode
-        isArea2Mode = firebaseArea2Mode
-    }
     // Sync area2 employee list into repository
     LaunchedEffect(area2Employees) {
         repository.applyArea2Employees(area2Employees)
@@ -220,8 +214,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
             },
             onToggleApp = { firebaseRepo.setAppEnabled(it) },
             onToggleArea2Mode = { enable ->
-                // Write to Firebase (syncs all devices) AND local prefs + state (sticky)
-                firebaseRepo.setArea2Mode(enable)
+                // Local only — only this device switches mode
                 repository.isArea2Mode = enable
                 isArea2Mode = enable
             },
@@ -586,9 +579,9 @@ private fun AdminDialog(
                     }
                     Text(
                         text = if (isArea2Mode)
-                            "⚠️ Active on ALL devices. Only Area 2 people can enter. Tap to exit."
+                            "⚠️ Questo dispositivo è in modalità Area 2. Tap per uscire."
                         else
-                            "Switch ALL devices to secondary canteen mode. Persists across restarts.",
+                            "Attiva solo su questo dispositivo. Persiste anche dopo il riavvio.",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isArea2Mode) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )

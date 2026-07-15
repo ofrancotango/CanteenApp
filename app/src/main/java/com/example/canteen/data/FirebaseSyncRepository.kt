@@ -43,9 +43,7 @@ class FirebaseSyncRepository {
     val manualEmployees: StateFlow<List<FirebaseEmployee>> = _manualEmployees
 
     // ── Area 2 ──────────────────────────────────────────────────────────────
-    private val _isArea2Mode = MutableStateFlow(false)
-    val isArea2Mode: StateFlow<Boolean> = _isArea2Mode
-
+    // area2Mode is LOCAL per device — not stored in Firebase
     private val _area2Employees = MutableStateFlow<List<FirebaseEmployee>>(emptyList())
     val area2Employees: StateFlow<List<FirebaseEmployee>> = _area2Employees
 
@@ -55,7 +53,6 @@ class FirebaseSyncRepository {
     private var forbiddenCompaniesListener: ValueEventListener? = null
     private var forbiddenEmployeesListener: ValueEventListener? = null
     private var manualEmployeesListener: ValueEventListener? = null
-    private var area2ModeListener: ValueEventListener? = null
     private var area2EmployeesListener: ValueEventListener? = null
     private var currentTodayDate: String = ""
 
@@ -178,16 +175,8 @@ class FirebaseSyncRepository {
     }
 
     // ── Area 2 listeners ────────────────────────────────────────────────────
-
-    private fun listenToArea2Mode() {
-        area2ModeListener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                _isArea2Mode.value = snapshot.getValue(Boolean::class.java) ?: false
-            }
-            override fun onCancelled(error: DatabaseError) {}
-        }
-        configRef.child("area2Mode").addValueEventListener(area2ModeListener!!)
-    }
+    // Note: area2Mode is intentionally LOCAL-ONLY (per device, SharedPrefs).
+    // Only area2Employees list syncs via Firebase so all devices share the same authorised people.
 
     private fun listenToArea2Employees() {
         area2EmployeesListener = object : ValueEventListener {
@@ -209,10 +198,6 @@ class FirebaseSyncRepository {
 
     fun setAppEnabled(enabled: Boolean) {
         configRef.child("appEnabled").setValue(enabled)
-    }
-
-    fun setArea2Mode(enabled: Boolean) {
-        configRef.child("area2Mode").setValue(enabled)
     }
 
     fun addArea2Employee(name: String, company: String) {
@@ -292,7 +277,6 @@ class FirebaseSyncRepository {
         forbiddenCompaniesListener?.let { configRef.child("forbiddenCompanies").removeEventListener(it) }
         forbiddenEmployeesListener?.let { configRef.child("forbiddenEmployees").removeEventListener(it) }
         manualEmployeesListener?.let { configRef.child("manualEmployees").removeEventListener(it) }
-        area2ModeListener?.let { configRef.child("area2Mode").removeEventListener(it) }
         area2EmployeesListener?.let { configRef.child("area2Employees").removeEventListener(it) }
     }
 
