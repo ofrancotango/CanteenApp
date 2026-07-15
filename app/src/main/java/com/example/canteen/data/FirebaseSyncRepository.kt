@@ -76,7 +76,6 @@ class FirebaseSyncRepository {
         listenToForbiddenCompanies()
         listenToForbiddenEmployees()
         listenToManualEmployees()
-        listenToArea2Mode()
         listenToArea2Employees()
     }
 
