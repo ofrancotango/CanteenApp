@@ -61,7 +61,8 @@ import java.util.Locale
 @Composable
 fun StatsScreen(
     stats: Map<String, Any>,
-    expectedAttendance: Int,
+    expectedDay: Int,
+    expectedNight: Int,
     repository: AccessRepository,
     onBackClick: () -> Unit
 ) {
@@ -148,12 +149,23 @@ fun StatsScreen(
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                StatCard(
-                    label = "Expected Attendance",
-                    value = expectedAttendance.toString(),
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    gradient = listOf(AppAccent, AppAccentLight)
-                )
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatCard(
+                        label = "☀ Day avg",
+                        value = expectedDay.toString(),
+                        modifier = Modifier.weight(1f),
+                        gradient = listOf(AppAccent, AppAccentLight)
+                    )
+                    StatCard(
+                        label = "🌙 Night avg",
+                        value = expectedNight.toString(),
+                        modifier = Modifier.weight(1f),
+                        gradient = listOf(AppAccent, AppAccentLight)
+                    )
+                }
                 Spacer(modifier = Modifier.height(24.dp))
             }
 

@@ -130,9 +130,20 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     val todayDeniedCount by repository.todayDeniedCount.collectAsState(initial = 0)
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
-    var expectedAttendance by remember { mutableStateOf(0) }
+    var expectedDay   by remember { mutableStateOf(0) }
+    var expectedNight by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
-        expectedAttendance = repository.getExpectedAttendance()
+        val (d, n) = repository.getExpectedAttendanceByShift()
+        expectedDay   = d
+        expectedNight = n
+    }
+
+    // Determine shift from a scan timestamp: 06:00–14:59 → DAY, everything else → NIGHT
+    fun shiftFor(ts: Long): String {
+        val cal = java.util.Calendar.getInstance()
+        cal.timeInMillis = ts
+        val minutes = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
+        return if (minutes in 360 until 900) "DAY" else "NIGHT"
     }
 
     // Firebase-synced rules
@@ -251,12 +262,22 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     val todayCloudAdmittedCount = cloudScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
         .takeIf { cloudScans.isNotEmpty() } ?: todayAdmittedCount
 
+    // Split cloud scans by shift using timestamp → hour boundary (DAY 06:00-15:00, NIGHT otherwise)
+    val todayCloudDayCount   = cloudScans.count { (it.result == "SUCCESS" || it.result == "BONUS") && shiftFor(it.timestamp) == "DAY"   }
+        .takeIf { cloudScans.isNotEmpty() } ?: 0
+    val todayCloudNightCount = cloudScans.count { (it.result == "SUCCESS" || it.result == "BONUS") && shiftFor(it.timestamp) == "NIGHT" }
+        .takeIf { cloudScans.isNotEmpty() } ?: 0
+
+    val currentShift       = repository.getCurrentShift()
+    val currentShiftCount    = if (currentShift == "DAY") todayCloudDayCount   else todayCloudNightCount
+    val currentShiftExpected = if (currentShift == "DAY") expectedDay           else expectedNight
+
     when (currentScreen) {
         Screen.HOME -> {
             HomeScreen(
-                scansToday = todayCloudAdmittedCount,
+                scansToday = currentShiftCount,
                 scanStatus = "$scanStatus (Last Err: ${repository.lastError ?: "None"})",
-                expectedAttendance = expectedAttendance,
+                expectedAttendance = currentShiftExpected,
                 deniedCount = todayDeniedCount,
                 onScanClick = { currentScreen = Screen.SCANNER },
                 onStatsClick = { currentScreen = Screen.STATS },
@@ -367,7 +388,8 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
             val stats = repository.getStats()
             StatsScreen(
                 stats = stats,
-                expectedAttendance = expectedAttendance,
+                expectedDay = expectedDay,
+                expectedNight = expectedNight,
                 repository = repository,
                 onBackClick = { currentScreen = Screen.HOME }
             )

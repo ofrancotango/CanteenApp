@@ -614,10 +614,12 @@ class AccessRepository(val context: Context) {
         return scanEventDao.getEventsByDateFlow(start, end)
     }
     
-    // Expected attendance = average admitted count over last 2 workdays (Mon-Fri), excluding Sat/Sun
-    suspend fun getExpectedAttendance(): Int = withContext(Dispatchers.IO) {
+    // Expected attendance split by shift — average admitted over last 2 workdays (Mon-Fri).
+    // Returns Pair(dayAvg, nightAvg) computed from the local ScanEvent history which carries the shift field.
+    suspend fun getExpectedAttendanceByShift(): Pair<Int, Int> = withContext(Dispatchers.IO) {
         val cal = Calendar.getInstance()
-        val dayCounts = mutableListOf<Int>()
+        val dayCountList   = mutableListOf<Int>()
+        val nightCountList = mutableListOf<Int>()
         // Scan back up to 14 days to find 2 workdays
         for (i in 1..14) {
             cal.add(Calendar.DAY_OF_YEAR, -1)
@@ -631,19 +633,14 @@ class AccessRepository(val context: Context) {
                 val end = start.clone() as Calendar
                 end.add(Calendar.DAY_OF_YEAR, 1)
                 val events = scanEventDao.getEventsByDate(start.timeInMillis, end.timeInMillis)
-                val admitted = events.count { it.result == "SUCCESS" || it.result == "BONUS" }
-                dayCounts.add(admitted)
-                if (dayCounts.size >= 2) break
+                dayCountList.add(events.count   { (it.result == "SUCCESS" || it.result == "BONUS") && it.shift == "DAY"   })
+                nightCountList.add(events.count { (it.result == "SUCCESS" || it.result == "BONUS") && it.shift == "NIGHT" })
+                if (dayCountList.size >= 2) break
             }
         }
-        if (dayCounts.isEmpty()) {
-            // Fallback: count whitelist employees from allowed companies
-            whitelist.values.distinct().count { emp ->
-                ALLOWED_COMPANIES.any { it.equals(emp.company, ignoreCase = true) }
-            }
-        } else {
-            dayCounts.sum() / dayCounts.size
-        }
+        val dayAvg   = if (dayCountList.isEmpty())   0 else dayCountList.sum()   / dayCountList.size
+        val nightAvg = if (nightCountList.isEmpty())  0 else nightCountList.sum() / nightCountList.size
+        Pair(dayAvg, nightAvg)
     }
 
     suspend fun refreshWhitelist(): Boolean {
