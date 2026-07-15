@@ -185,7 +185,7 @@ fun Area2ManagerScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Tap "Add Person" to add someone to the secondary canteen.",
+                        text = "Tap 'Add Person' to add someone to the secondary canteen.",
                         color = AppMuted.copy(alpha = 0.7f),
                         fontSize = 13.sp
                     )
