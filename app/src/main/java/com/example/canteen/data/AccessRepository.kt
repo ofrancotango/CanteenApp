@@ -24,7 +24,7 @@ class AccessRepository(val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("canteen_prefs", Context.MODE_PRIVATE)
     private val db = AppDatabase.getDatabase(context)
     private val statsDao = db.dailyStatsDao()
-    private val scanEventDao = db.scanEventDao() // New DAO
+    private val scanEventDao = db.scanEventDao()
     
     private val fetcher = EmployeeFetcher()
     private val CACHE_FILE = "cached_whitelist_v2.txt" // Storing "Name|Company|FirstName|LastName"
@@ -41,8 +41,20 @@ class AccessRepository(val context: Context) {
     val currentScanCount: StateFlow<Int> = _currentScanCount
 
     // Names of employees added via Whitelist Manager (Firebase manualEmployees node).
-    // Tracked separately so priority applies regardless of what company string is stored.
     private var manualWhitelistedNames: Set<String> = emptySet()
+
+    // ── Area 2 ──────────────────────────────────────────────────────────────
+    // Sticky: persisted in SharedPreferences so it survives restarts without internet.
+    var isArea2Mode: Boolean
+        get() = prefs.getBoolean("area2_mode_active", false)
+        set(value) { prefs.edit().putBoolean("area2_mode_active", value).apply() }
+
+    // Area 2 employee names (normalized) — set from Firebase via applyArea2Employees()
+    private var area2EmployeeNames: Set<String> = emptySet()
+
+    fun applyArea2Employees(employees: List<FirebaseEmployee>) {
+        area2EmployeeNames = employees.map { it.name.trim().lowercase() }.toSet()
+    }
 
     // Real-time list of ALL today's scans — auto-refreshed via timer in MainActivity
     private val _todayScans = MutableStateFlow<List<ScanEvent>>(emptyList())
@@ -98,7 +110,6 @@ class AccessRepository(val context: Context) {
             if (norm.isNotBlank()) current[norm] = emp
         }
         whitelist = current
-        // Track every name in the manual list so the priority check works regardless of company value
         manualWhitelistedNames = employees.map { it.name.trim().lowercase() }.toSet()
     }
     
@@ -108,8 +119,7 @@ class AccessRepository(val context: Context) {
     init {
         checkDailyReset()
         loadFromCache()
-        loadCsvData() // Load CSV on startup (merging with cache)
-        // Sync stats from prefs to DB on startup to ensure persistence
+        loadCsvData()
         GlobalScope.launch(Dispatchers.IO) {
             syncStatsToDb()
             updateScanCountFlow()
@@ -121,7 +131,6 @@ class AccessRepository(val context: Context) {
         val todayDate = getTodayDateString()
 
         if (lastDate != todayDate) {
-            // New Day: clear only daily counters per shift, NOT all prefs
             val edit = prefs.edit()
             prefs.all.forEach { (key, _) ->
                 if (key.startsWith("count_")) edit.remove(key)
@@ -137,12 +146,9 @@ class AccessRepository(val context: Context) {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     }
 
-    // Force re-query of today's data — call when day boundary is crossed while app is open
     fun refreshTodayStats() {
         checkDailyReset()
         GlobalScope.launch(Dispatchers.IO) {
-            // Re-query DB — the StateFlows will auto-update via their Flow collectors
-            // (they're already collecting from Room, but checkDailyReset clears counters)
             syncStatsToDb()
             updateScanCountFlow()
         }
@@ -153,18 +159,16 @@ class AccessRepository(val context: Context) {
         val calendar = Calendar.getInstance()
         val hour = calendar.get(Calendar.HOUR_OF_DAY)
         val minute = calendar.get(Calendar.MINUTE)
-        val time = hour * 60 + minute // minutes since midnight
-        val dayEnd = 15 * 60          // 15:00
+        val time = hour * 60 + minute
+        val dayEnd = 15 * 60
         return if (time in 360..<dayEnd) "DAY" else "NIGHT"
     }
 
-    // Returns true ONLY during the actual night shift window (15:00–21:30).
-    // Used to enable free-access mode; deliberately excludes late night / early morning.
     private fun isActualNightShift(): Boolean {
         val calendar = Calendar.getInstance()
         val time = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-        val nightStart = 15 * 60      // 15:00
-        val nightEnd   = 21 * 60 + 30 // 21:30
+        val nightStart = 15 * 60
+        val nightEnd   = 21 * 60 + 30
         return time in nightStart..<nightEnd
     }
 
@@ -177,22 +181,16 @@ class AccessRepository(val context: Context) {
         return calendar.timeInMillis
     }
 
-    // Load CSV Data from Assets (technipqrlist/MAX_BADGES00.csv)
     private fun loadCsvData() {
         try {
-            // Use Assets instead of InputStream argument for simplicity in this context
             val assetPath = "technipqrlist/MAX_BADGES00.csv"
             context.assets.open(assetPath).use { stream ->
                 val reader = stream.bufferedReader()
                 val lines = reader.readLines()
-                
-                // Helper map for merging to avoid overwriting Web-fetched users (Precedence to First System)
-                // We clone the current whitelist to a mutable map
                 val currentWhitelist = whitelist.toMutableMap()
                 var addedCount = 0
 
-                lines.drop(1).forEach { line -> // Skip Header
-                    // Format: First name;Last name;Company Contractor;Company Sub Contractor
+                lines.drop(1).forEach { line ->
                     val parts = line.split(";")
                     if (parts.size >= 3) {
                         val fName = parts[0].trim()
@@ -200,51 +198,26 @@ class AccessRepository(val context: Context) {
                         val companyMain = parts[2].trim()
                         val companySub = if (parts.size > 3) parts[3].trim() else ""
                         
-                        // Rule: If Sub Contractor exists, use it (likely the actual employer for blacklist check)
                         var company = if (companySub.isNotBlank()) companySub else companyMain
-                        
-                        // FIX: Ignore "." or single char noise as company
                         if (company == "." || company.length < 2) {
-                             // Fallback to Main if Sub was invalid, or just empty if both bad
                              company = if (companyMain.length > 1) companyMain else ""
                         }
                         
                         val fullName = "$fName $lName"
-
-                        val emp = Employee(
-                            name = fullName,
-                            company = company,
-                            firstName = fName,
-                            lastName = lName
-                        )
-
-                        // Key Generation
-                        // We add permutations just like Web entries
-                        val combos = listOf(
-                            "$fName $lName",
-                            "$lName $fName"
-                        )
+                        val emp = Employee(name = fullName, company = company, firstName = fName, lastName = lName)
+                        val combos = listOf("$fName $lName", "$lName $fName")
 
                         for (combo in combos) {
                             val norm = StringNormalizer.normalize(combo)
-                            if (norm.isNotBlank()) {
-                                // ONLY ADD IF NOT EXISTS (Web Fetch takes precedence)
-                                if (!currentWhitelist.containsKey(norm)) {
-                                    currentWhitelist[norm] = emp
-                                    addedCount++
-                                }
+                            if (norm.isNotBlank() && !currentWhitelist.containsKey(norm)) {
+                                currentWhitelist[norm] = emp
+                                addedCount++
                             }
                         }
                     }
                 }
                 
-                if (addedCount > 0) {
-                    whitelist = currentWhitelist
-                    // Don't update totalEmployees just yet or do we? 
-                    // totalEmployees usually tracks "Fetched" count. 
-                    // Let's just update the map.
-                }
-                // Log/Debug could go here
+                if (addedCount > 0) whitelist = currentWhitelist
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -254,7 +227,6 @@ class AccessRepository(val context: Context) {
     }
     
     private fun injectManualUsers() {
-        // Manually add users who are missing from CSV/API but need access
         val manualUsers = listOf(
             Employee("Tudor Marian", "ManualWhitelist", "Tudor", "Marian"),
             Employee("Despa Constantin", "ManualWhitelist", "Despa", "Constantin"),
@@ -265,29 +237,22 @@ class AccessRepository(val context: Context) {
             Employee("Marius Gabriel Nica", "ManualWhitelist", "Marius Gabriel", "Nica"),
             Employee("Schiano Hugo", "ManualWhitelist", "Schiano", "Hugo"),
             Employee("Sebastian Tomaszkowicz", "ManualWhitelist", "Sebastian", "Tomaszkowicz"),
-            // Jim Catering — no bonus limits, scans always allowed
+            // Jim Catering — golden pass, no limits
             Employee("Jim Catering", "JimCatering", "Jim", "Catering")
         )
         
         val currentWhitelist = whitelist.toMutableMap()
         manualUsers.forEach { emp ->
-            // Map variations
             val rawName = emp.name
-            val dotName = "${emp.firstName}.${emp.lastName}".lowercase() // tudor.marian
-            
+            val dotName = "${emp.firstName}.${emp.lastName}".lowercase()
             val normOriginal = StringNormalizer.normalize(rawName)
             if (normOriginal.isNotBlank()) currentWhitelist[normOriginal] = emp
-            
-            // Also map the specific "dot" format they might get scanned as
             if (dotName.isNotBlank()) currentWhitelist[dotName] = emp
         }
         whitelist = currentWhitelist
     }
     
-    // Legacy loadData stub - removed/replaced
-    fun loadData(csvInputStream: InputStream) { 
-        // No-op or redirect to loadCsvData if needed, but we used internal asset loading
-    }
+    fun loadData(csvInputStream: InputStream) { }
 
     fun verifyAccess(scannedInput: String): VerificationResult {
         checkDailyReset()
@@ -296,41 +261,26 @@ class AccessRepository(val context: Context) {
         val cleanedInput = if (scannedInput.contains("_")) scannedInput.substringAfter("_") else scannedInput
         val normalizedInput = StringNormalizer.normalize(cleanedInput)
         
-        // 2. Find Employee
-        // Try exact match first
         var employee = whitelist[normalizedInput]
         var isFuzzy = false
         var matchedKey = normalizedInput
         
-        // If not found, try Smart Token Match
         if (employee == null) {
-            // New "Smart Token" Strategy
-            // Iterate over UNIQUE employees (values)
             val uniqueEmployees = whitelist.values.distinct()
-            
             for (emp in uniqueEmployees) {
-                // Check match against original name (or reconstructed full name)
-                // We pass the Employee's Name to the matcher
-                // But wait, emp.name from CSV might be "First Last". 
-                // We should probably rely on the normalized key map?
-                // No, Smart Token Match needs raw-ish or tokenized strings. 
-                // StringNormalizer.smartTokenMatch handles normalization internally.
-                
-                // Use emp.name
                 if (StringNormalizer.smartTokenMatch(scannedInput, emp.name)) {
                     employee = emp
                     isFuzzy = true
                     matchedKey = StringNormalizer.normalize(emp.name)
-                    break // Stop on first match
+                    break
                 }
             }
         }
         
         val shift = getCurrentShift()
+        val currentArea = if (isArea2Mode) "AREA2" else "MAIN"
 
         // --- 0. NIGHT SHIFT FREE ACCESS (15:00–21:30) ---
-        // During the actual night shift window ALL rules are suspended — everyone passes,
-        // including unrecognised badge codes.
         if (isActualNightShift()) {
             GlobalScope.launch(Dispatchers.IO) {
                 syncStatsToDb()
@@ -342,7 +292,8 @@ class AccessRepository(val context: Context) {
                     company = employee?.company ?: "NIGHT_ACCESS",
                     result = "SUCCESS",
                     reason = "NIGHT_FREE_ACCESS",
-                    shift = shift
+                    shift = shift,
+                    area = currentArea
                 ))
             }
             return VerificationResult.Success(
@@ -354,9 +305,9 @@ class AccessRepository(val context: Context) {
             )
         }
 
-        // --- 1. UNKNOWN USER (only outside night shift) ---
+        // --- 1. UNKNOWN USER ---
         if (employee == null) {
-            logEvent(timestamp, scannedInput, null, null, "DENIED", "UNKNOWN_USER")
+            logEvent(timestamp, scannedInput, null, null, "DENIED", "UNKNOWN_USER", currentArea)
             return VerificationResult.Failure(
                 VerificationResult.Failure.Reason.UNKNOWN_USER,
                 scannedInput,
@@ -364,35 +315,130 @@ class AccessRepository(val context: Context) {
             )
         }
 
-        // 3. Check Companies
         val company = employee.company.trim()
         val lowerCompany = company.lowercase()
 
-        // --- Manual Whitelist: employees added via the Whitelist Manager have priority over
-        //     every company rule. Their company is "ManualWhitelist" (default in the UI).
-        //     Also includes the legacy hardcoded SPECIAL_WHITELIST names.
-        // An employee is "manually whitelisted" if their company tag is "ManualWhitelist" OR
-        // their name is in the Firebase manualEmployees node (regardless of stored company).
+        // ── Jim Catering golden pass check ──────────────────────────────────
+        val isUnlimited = company.equals("JimCatering", ignoreCase = true) ||
+            employee.name.trim().equals("Jim Catering", ignoreCase = true)
+
+        // ── Area 2 mode: only Area 2 employees (+ Jim Catering) are allowed ─
+        if (isArea2Mode) {
+            val isInArea2List = area2EmployeeNames.contains(employee.name.trim().lowercase())
+
+            if (!isInArea2List && !isUnlimited) {
+                logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "NOT_IN_AREA2", currentArea)
+                return VerificationResult.Failure(
+                    VerificationResult.Failure.Reason.BLACK_LISTED,
+                    scannedInput,
+                    company,
+                    timestamp = timestamp
+                )
+            }
+
+            // Jim Catering in Area 2: golden pass
+            if (isUnlimited) {
+                GlobalScope.launch(Dispatchers.IO) {
+                    scanEventDao.insert(ScanEvent(
+                        timestamp = timestamp,
+                        scannedCode = scannedInput,
+                        matchedName = employee!!.name,
+                        company = company,
+                        result = "SUCCESS",
+                        reason = "UNLIMITED",
+                        shift = shift,
+                        area = currentArea
+                    ))
+                }
+                return VerificationResult.Success(
+                    originalName = scannedInput,
+                    normalizedName = normalizedInput,
+                    matchedName = employee.name,
+                    isFuzzyMatch = isFuzzy,
+                    requiresNote = true,
+                    timestamp = timestamp
+                )
+            }
+
+            // Area 2 employee: apply daily limit (1/shift) + bonus
+            val countKey = "area2_count_${matchedKey}_$shift"
+            val currentUsage = prefs.getInt(countKey, 0)
+            val allowance = 1
+
+            if (currentUsage < allowance) {
+                val newCount = currentUsage + 1
+                prefs.edit().putInt(countKey, newCount).apply()
+                GlobalScope.launch(Dispatchers.IO) {
+                    syncStatsToDb()
+                    updateScanCountFlow()
+                    scanEventDao.insert(ScanEvent(
+                        timestamp = timestamp,
+                        scannedCode = scannedInput,
+                        matchedName = employee!!.name,
+                        company = company,
+                        result = "SUCCESS",
+                        reason = null,
+                        shift = shift,
+                        area = currentArea
+                    ))
+                }
+                return VerificationResult.Success(
+                    originalName = scannedInput,
+                    normalizedName = normalizedInput,
+                    matchedName = employee.name,
+                    isFuzzyMatch = isFuzzy,
+                    timestamp = timestamp
+                )
+            } else {
+                // Bonus for Area 2
+                val bonusKey = "area2_bonus_used_$shift"
+                val usedBonus = prefs.getInt(bonusKey, 0)
+                if (usedBonus < DAILY_BONUS_THRESHOLD) {
+                    val newBonus = usedBonus + 1
+                    prefs.edit().putInt(bonusKey, newBonus).apply()
+                    GlobalScope.launch(Dispatchers.IO) {
+                        syncStatsToDb()
+                        updateScanCountFlow()
+                        scanEventDao.insert(ScanEvent(
+                            timestamp = timestamp,
+                            scannedCode = scannedInput,
+                            matchedName = employee!!.name,
+                            company = company,
+                            result = "BONUS",
+                            reason = "LIMIT_REACHED_BONUS($newBonus/$DAILY_BONUS_THRESHOLD)",
+                            shift = shift,
+                            area = currentArea
+                        ))
+                    }
+                    return VerificationResult.Success(
+                        originalName = scannedInput,
+                        normalizedName = normalizedInput,
+                        matchedName = employee.name + " (BONUS)",
+                        isFuzzyMatch = isFuzzy,
+                        timestamp = timestamp
+                    )
+                } else {
+                    logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "LIMIT_REACHED", currentArea)
+                    return VerificationResult.Failure(
+                        VerificationResult.Failure.Reason.LIMIT_REACHED,
+                        scannedInput,
+                        timestamp = timestamp
+                    )
+                }
+            }
+        }
+
+        // ── Standard (MAIN) mode logic below ────────────────────────────────
+
         val isManualWhitelisted = company.equals("ManualWhitelist", ignoreCase = true)
             || manualWhitelistedNames.contains(employee.name.trim().lowercase())
         val SPECIAL_WHITELIST = setOf(
-            "Cristian De Domenico",
-            "Tudor Marian",
-            "Carlos Ferreira Palhau",
-            "Giovanni Giarrizzo",
-            "Chukwudi Joshua Agim",
-            "Despa Constantin",
-            "Mohammed Fezaad Khan",
-            "Adrian Valeriu",
-            "Daniel Ionut Papatoiiu",
-            "Johan Weesie",
-            "Andrei Alexandru Ionut Dima",
-            "Carlos Vilela",
-            "Patrick Flohil",
-            "Andre Fernandes Da sousa Nunes",
-            "Marius Gabriel Nica",
-            "Schiano Hugo",
-            "Sebastian Tomaszkowicz",
+            "Cristian De Domenico", "Tudor Marian", "Carlos Ferreira Palhau",
+            "Giovanni Giarrizzo", "Chukwudi Joshua Agim", "Despa Constantin",
+            "Mohammed Fezaad Khan", "Adrian Valeriu", "Daniel Ionut Papatoiiu",
+            "Johan Weesie", "Andrei Alexandru Ionut Dima", "Carlos Vilela",
+            "Patrick Flohil", "Andre Fernandes Da sousa Nunes",
+            "Marius Gabriel Nica", "Schiano Hugo", "Sebastian Tomaszkowicz",
             "Jim Catering"
         )
         val isSpecialWhitelisted = isManualWhitelisted ||
@@ -400,19 +446,15 @@ class AccessRepository(val context: Context) {
 
         // --- 2. BLACKLIST ---
         val isCompanyBlacklisted = FORBIDDEN_COMPANIES.any { it.equals(company, ignoreCase = true) }
-        
-        // Also check if employee is specifically blacklisted
-        // Use StringNormalizer to ensure we catch variations in spacing/lowercase and name ordering
         val isEmployeeBlacklisted = FORBIDDEN_EMPLOYEES.any { 
             it.equals(employee.name.trim(), ignoreCase = true) ||
             StringNormalizer.normalize(it) == StringNormalizer.normalize(employee.name) ||
             StringNormalizer.smartTokenMatch(it, employee.name)
         }
-        
         val isBlacklisted = isCompanyBlacklisted || isEmployeeBlacklisted
         
         if (isBlacklisted && !isSpecialWhitelisted) {
-             logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "BLACKLISTED")
+             logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "BLACKLISTED", currentArea)
              return VerificationResult.Failure(
                 VerificationResult.Failure.Reason.BLACK_LISTED,
                 scannedInput,
@@ -425,8 +467,7 @@ class AccessRepository(val context: Context) {
         val isWhitelisted = ALLOWED_COMPANIES.any { it.equals(company, ignoreCase = true) }
         
         if (!isWhitelisted && !isSpecialWhitelisted) {
-             // Treat as Blacklisted/Unauthorized but with Company Name
-             logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "NOT_WHITELISTED")
+             logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "NOT_WHITELISTED", currentArea)
              return VerificationResult.Failure(
                 VerificationResult.Failure.Reason.BLACK_LISTED, 
                 scannedInput,
@@ -436,9 +477,6 @@ class AccessRepository(val context: Context) {
         }
 
         // --- 4. DAILY LIMITS + BONUS ---
-        val isUnlimited = company.equals("JimCatering", ignoreCase = true) ||
-            employee.name.trim().equals("Jim Catering", ignoreCase = true)
-
         val countKey = "count_${matchedKey}_$shift"
         val currentUsage = prefs.getInt(countKey, 0)
         val allowance = 1
@@ -453,7 +491,8 @@ class AccessRepository(val context: Context) {
                     company = company,
                     result = "SUCCESS",
                     reason = "UNLIMITED",
-                    shift = shift
+                    shift = shift,
+                    area = currentArea
                 ))
             }
             return VerificationResult.Success(
@@ -467,11 +506,9 @@ class AccessRepository(val context: Context) {
         }
 
         if (currentUsage < allowance) {
-            // SUCCESS (Standard)
             val newCount = currentUsage + 1
             prefs.edit().putInt(countKey, newCount).apply()
 
-            // Async Persistence to DB
             GlobalScope.launch(Dispatchers.IO) {
                 syncStatsToDb()
                 updateScanCountFlow()
@@ -482,7 +519,8 @@ class AccessRepository(val context: Context) {
                     company = company,
                     result = "SUCCESS",
                     reason = null,
-                    shift = shift
+                    shift = shift,
+                    area = currentArea
                 ))
             }
 
@@ -499,7 +537,6 @@ class AccessRepository(val context: Context) {
             val usedBonus = prefs.getInt(bonusKey, 0)
 
             if (usedBonus < DAILY_BONUS_THRESHOLD) {
-                // GRANT BONUS ACCESS
                 val newBonus = usedBonus + 1
                 prefs.edit().putInt(bonusKey, newBonus).apply()
 
@@ -513,7 +550,8 @@ class AccessRepository(val context: Context) {
                         company = company,
                         result = "BONUS",
                         reason = "LIMIT_REACHED_BONUS($newBonus/$DAILY_BONUS_THRESHOLD)",
-                        shift = shift
+                        shift = shift,
+                        area = currentArea
                     ))
                 }
 
@@ -525,8 +563,7 @@ class AccessRepository(val context: Context) {
                     timestamp = timestamp
                 )
             } else {
-                // HARD DENY
-                logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "LIMIT_REACHED")
+                logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "LIMIT_REACHED", currentArea)
                 return VerificationResult.Failure(
                     VerificationResult.Failure.Reason.LIMIT_REACHED,
                     scannedInput,
@@ -536,7 +573,7 @@ class AccessRepository(val context: Context) {
         }
     }
 
-    private fun logEvent(ts: Long, code: String, name: String?, company: String?, res: String, reason: String?) {
+    private fun logEvent(ts: Long, code: String, name: String?, company: String?, res: String, reason: String?, area: String = "MAIN") {
         val shift = getCurrentShift()
         GlobalScope.launch(Dispatchers.IO) {
             try {
@@ -547,10 +584,10 @@ class AccessRepository(val context: Context) {
                     company = company,
                     result = res,
                     reason = reason,
-                    shift = shift
+                    shift = shift,
+                    area = area
                 ))
             } catch (e: Exception) {
-                // Log insert failure so we can diagnose missing denied entries
                 android.util.Log.e("AccessRepository", "Failed to insert $res scan: ${e.message}")
             }
         }
@@ -582,17 +619,15 @@ class AccessRepository(val context: Context) {
                 totalScans += value
                 uniqueUsers++
             }
+            if (key.startsWith("area2_count_") && value is Int) {
+                totalScans += value
+                uniqueUsers++
+            }
         }
-        // Bonus counts are NOT stored in "count_" keys usually? 
-        // Wait, if we grant access, we usually increment count. 
-        // But for bonus, we incremented "daily_bonus_used".
-        // Should bonus scans count towards TOTAL SCANS? Yes.
-        // So we should add daily_bonus_used to totalScans?
-        // Or did we increment "count_" for them? In code above I did NOT increment personal count for Bonus.
-        // So we must add bonus explicitly.
         
         val bonus = prefs.getInt("daily_bonus_used", 0)
-        totalScans += bonus
+        val area2Bonus = prefs.getInt("area2_bonus_used_DAY", 0) + prefs.getInt("area2_bonus_used_NIGHT", 0)
+        totalScans += bonus + area2Bonus
         
         return mapOf(
             "total_scans_today" to totalScans,
@@ -614,13 +649,12 @@ class AccessRepository(val context: Context) {
         return scanEventDao.getEventsByDateFlow(start, end)
     }
     
-    // Expected attendance split by shift — average admitted over last 2 workdays (Mon-Fri).
-    // Returns Pair(dayAvg, nightAvg) computed from the local ScanEvent history which carries the shift field.
+    // Expected attendance split by shift — average admitted over last 2 workdays.
+    // In Area 2 mode, returns counts based on area2 scans only.
     suspend fun getExpectedAttendanceByShift(): Pair<Int, Int> = withContext(Dispatchers.IO) {
         val cal = Calendar.getInstance()
         val dayCountList   = mutableListOf<Int>()
         val nightCountList = mutableListOf<Int>()
-        // Scan back up to 14 days to find 2 workdays
         for (i in 1..14) {
             cal.add(Calendar.DAY_OF_YEAR, -1)
             val dow = cal.get(Calendar.DAY_OF_WEEK)
@@ -633,8 +667,9 @@ class AccessRepository(val context: Context) {
                 val end = start.clone() as Calendar
                 end.add(Calendar.DAY_OF_YEAR, 1)
                 val events = scanEventDao.getEventsByDate(start.timeInMillis, end.timeInMillis)
-                dayCountList.add(events.count   { (it.result == "SUCCESS" || it.result == "BONUS") && it.shift == "DAY"   })
-                nightCountList.add(events.count { (it.result == "SUCCESS" || it.result == "BONUS") && it.shift == "NIGHT" })
+                val relevant = if (isArea2Mode) events.filter { it.area == "AREA2" } else events
+                dayCountList.add(relevant.count   { (it.result == "SUCCESS" || it.result == "BONUS") && it.shift == "DAY"   })
+                nightCountList.add(relevant.count { (it.result == "SUCCESS" || it.result == "BONUS") && it.shift == "NIGHT" })
                 if (dayCountList.size >= 2) break
             }
         }
@@ -647,29 +682,22 @@ class AccessRepository(val context: Context) {
         _lastFetchStatus.value = "Fetching..."
         return withContext(Dispatchers.IO) {
             try {
-                val employees = fetcher.fetchEmployees() // Returns List<Employee>
+                val employees = fetcher.fetchEmployees()
                 if (employees.isNotEmpty()) {
                     val newMap = mutableMapOf<String, Employee>()
                     employees.forEach { emp ->
                         val fName = emp.firstName ?: ""
                         val lName = emp.lastName ?: ""
-                        
                         val combo = "$fName $lName"
                         val norm = StringNormalizer.normalize(combo)
                         val normOriginal = StringNormalizer.normalize(emp.name)
-                        
                         if (norm.isNotBlank()) newMap[norm] = emp
                         if (normOriginal.isNotBlank()) newMap[normOriginal] = emp
                     }
-                    
                     whitelist = newMap
                     totalEmployees = employees.size
-                    
                     saveToCache(employees)
-                    
-                    // Merge CSV Data after refresh
                     loadCsvData()
-                    
                     _lastFetchStatus.value = "Success: ${employees.size} fetched + CSV merged."
                     lastError = null
                     true
@@ -716,8 +744,6 @@ class AccessRepository(val context: Context) {
                             val lName = parts.getOrElse(3) { "" }
                             
                             val emp = Employee(name, company, fName, lName)
-                            
-                            // Reconstruct whitelist keys
                             val combo1 = "$fName $lName"
                             val combo2 = "$lName $fName"
                             val norm1 = StringNormalizer.normalize(combo1)
@@ -752,7 +778,7 @@ class AccessRepository(val context: Context) {
         return withContext(Dispatchers.IO) {
             val events = scanEventDao.getAll()
             val sb = StringBuilder()
-            sb.append("ID;Time;Code;MatchedName;Company;Result;Reason;Shift;Note\n")
+            sb.append("ID;Time;Code;MatchedName;Company;Result;Reason;Shift;Area;Note\n")
             val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
             fun csvField(value: String?): String {
@@ -770,7 +796,7 @@ class AccessRepository(val context: Context) {
 
             events.forEach { e ->
                 val timeStr = sdf.format(Date(e.timestamp))
-                sb.append("${e.id};$timeStr;${csvField(e.scannedCode)};${csvField(e.matchedName)};${csvField(e.company)};${csvField(e.result)};${csvField(e.reason)};${csvField(e.shift)};${csvField(e.note)}\n")
+                sb.append("${e.id};$timeStr;${csvField(e.scannedCode)};${csvField(e.matchedName)};${csvField(e.company)};${csvField(e.result)};${csvField(e.reason)};${csvField(e.shift)};${csvField(e.area)};${csvField(e.note)}\n")
             }
             sb.toString()
         }

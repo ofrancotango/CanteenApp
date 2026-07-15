@@ -37,6 +37,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.canteen.data.AccessRepository
 import com.example.canteen.data.FirebaseSyncRepository
 import com.example.canteen.data.VerificationResult
+import com.example.canteen.ui.Area2ManagerScreen
 import com.example.canteen.ui.CompanyRulesScreen
 import com.example.canteen.ui.HomeScreen
 import com.example.canteen.ui.QRScannerScreen
@@ -83,11 +84,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun scheduleDailyReport() {
-        // Cancel legacy WorkManager scheduling
         androidx.work.WorkManager.getInstance(applicationContext)
             .cancelUniqueWork("daily_canteen_report_periodic")
-
-        // Use AlarmManager for exact-time delivery (reliable even in Doze/App Standby)
         EmailAlarmScheduler.schedule(applicationContext)
     }
 }
@@ -101,10 +99,14 @@ enum class Screen {
     STATS,
     TODAY_USERS,
     WHITELIST_MANAGER,
-    COMPANY_RULES
+    COMPANY_RULES,
+    AREA2_MANAGER
 }
 
 private const val ADMIN_PIN = "6767"
+
+// Area 2 purple accent
+private val Area2ButtonColor = Color(0xFF7C3AED)
 
 @Composable
 fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncRepository) {
@@ -130,6 +132,24 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     val todayDeniedCount by repository.todayDeniedCount.collectAsState(initial = 0)
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
+    // ── Area 2 state ─────────────────────────────────────────────────────────
+    // Firebase is the cross-device source of truth; local SharedPrefs makes it sticky across restarts.
+    val firebaseArea2Mode by firebaseRepo.isArea2Mode.collectAsState()
+    val area2Employees by firebaseRepo.area2Employees.collectAsState()
+
+    // mutableStateOf initialized from sticky SharedPrefs (so offline restarts load correctly)
+    var isArea2Mode by remember { mutableStateOf(repository.isArea2Mode) }
+
+    // Sync Firebase area2Mode → local prefs + composable State
+    LaunchedEffect(firebaseArea2Mode) {
+        repository.isArea2Mode = firebaseArea2Mode
+        isArea2Mode = firebaseArea2Mode
+    }
+    // Sync area2 employee list into repository
+    LaunchedEffect(area2Employees) {
+        repository.applyArea2Employees(area2Employees)
+    }
+
     var expectedDay   by remember { mutableStateOf(0) }
     var expectedNight by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
@@ -138,7 +158,6 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         expectedNight = n
     }
 
-    // Determine shift from a scan timestamp: 06:00–14:59 → DAY, everything else → NIGHT
     fun shiftFor(ts: Long): String {
         val cal = java.util.Calendar.getInstance()
         cal.timeInMillis = ts
@@ -146,13 +165,11 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         return if (minutes in 360 until 900) "DAY" else "NIGHT"
     }
 
-    // Firebase-synced rules
     val allowedCompanies by firebaseRepo.allowedCompanies.collectAsState()
     val forbiddenCompanies by firebaseRepo.forbiddenCompanies.collectAsState()
     val forbiddenEmployees by firebaseRepo.forbiddenEmployees.collectAsState()
     val manualEmployees by firebaseRepo.manualEmployees.collectAsState()
 
-    // Sync Firebase rules into repository when they change
     LaunchedEffect(allowedCompanies, forbiddenCompanies, forbiddenEmployees) {
         repository.setFirebaseRules(allowedCompanies, forbiddenCompanies, forbiddenEmployees)
     }
@@ -165,7 +182,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     var pinInput by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf(false) }
 
-    // Day boundary timer: refresh stats and Firebase listener at midnight
+    // Day boundary timer
     DisposableEffect(Unit) {
         var lastDay = repository.getTodayDateString()
         val timer = java.util.Timer()
@@ -178,7 +195,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                     firebaseRepo.refreshTodayListenerIfNeeded()
                 }
             }
-        }, 60000L, 60000L) // check every 60 seconds
+        }, 60000L, 60000L)
         onDispose {
             timer.cancel()
             firebaseRepo.refreshTodayListenerIfNeeded()
@@ -191,6 +208,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
             pinInput = pinInput,
             pinError = pinError,
             isAppEnabled = isAppEnabled,
+            isArea2Mode = isArea2Mode,
             onPinChange = { pinInput = it; pinError = false },
             onPinSubmit = {
                 if (pinInput == ADMIN_PIN) {
@@ -201,6 +219,12 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 }
             },
             onToggleApp = { firebaseRepo.setAppEnabled(it) },
+            onToggleArea2Mode = { enable ->
+                // Write to Firebase (syncs all devices) AND local prefs + state (sticky)
+                firebaseRepo.setArea2Mode(enable)
+                repository.isArea2Mode = enable
+                isArea2Mode = enable
+            },
             onOpenWhitelist = {
                 showAdminDialog = false
                 adminAuthenticated = false
@@ -212,6 +236,12 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 adminAuthenticated = false
                 pinInput = ""
                 currentScreen = Screen.COMPANY_RULES
+            },
+            onOpenArea2List = {
+                showAdminDialog = false
+                adminAuthenticated = false
+                pinInput = ""
+                currentScreen = Screen.AREA2_MANAGER
             },
             onSendTestEmail = {
                 coroutineScope.launch {
@@ -257,18 +287,28 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         return
     }
 
-    // Derive admitted-entries count from Firebase cloud scans so all devices see the same number.
-    // cloudScans is the real-time Firebase list; local todayAdmittedCount is kept as fallback.
-    val todayCloudAdmittedCount = cloudScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
-        .takeIf { cloudScans.isNotEmpty() } ?: todayAdmittedCount
+    // Cloud counts — filtered by area when in Area 2 mode
+    val area2CloudScans = if (isArea2Mode) {
+        cloudScans.filter { scan ->
+            area2Employees.any { it.name.equals(scan.name, ignoreCase = true) } ||
+            scan.name.equals("Jim Catering", ignoreCase = true)
+        }
+    } else cloudScans
 
-    // Split cloud scans by shift using timestamp → hour boundary (DAY 06:00-15:00, NIGHT otherwise)
+    val todayCloudAdmittedCount = if (isArea2Mode) {
+        area2CloudScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
+            .takeIf { cloudScans.isNotEmpty() } ?: todayAdmittedCount
+    } else {
+        cloudScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
+            .takeIf { cloudScans.isNotEmpty() } ?: todayAdmittedCount
+    }
+
     val todayCloudDayCount   = cloudScans.count { (it.result == "SUCCESS" || it.result == "BONUS") && shiftFor(it.timestamp) == "DAY"   }
         .takeIf { cloudScans.isNotEmpty() } ?: 0
     val todayCloudNightCount = cloudScans.count { (it.result == "SUCCESS" || it.result == "BONUS") && shiftFor(it.timestamp) == "NIGHT" }
         .takeIf { cloudScans.isNotEmpty() } ?: 0
 
-    val currentShift       = repository.getCurrentShift()
+    val currentShift         = repository.getCurrentShift()
     val currentShiftCount    = if (currentShift == "DAY") todayCloudDayCount   else todayCloudNightCount
     val currentShiftExpected = if (currentShift == "DAY") expectedDay           else expectedNight
 
@@ -281,6 +321,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 deniedCount = todayDeniedCount,
                 dayCount = todayCloudDayCount,
                 nightCount = todayCloudNightCount,
+                isArea2Mode = isArea2Mode,
                 onScanClick = { currentScreen = Screen.SCANNER },
                 onStatsClick = { currentScreen = Screen.STATS },
                 onTodayUsersClick = { currentScreen = Screen.TODAY_USERS },
@@ -293,7 +334,6 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         Screen.SCANNER -> {
             QRScannerScreen(
                 onQrCodeScanned = { code ->
-                    // If we are in "note scan mode", use this badge as note instead of normal verification
                     val targetTs = noteScanTargetTimestamp
                     if (targetTs != null) {
                         noteScanTargetTimestamp = null
@@ -330,7 +370,6 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                         }
                     }
                     lastResult = result
-                    // If Jim Catering scan, show note input screen
                     currentScreen = if (result is VerificationResult.Success && result.requiresNote) {
                         Screen.NOTE_INPUT
                     } else {
@@ -364,12 +403,12 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                                 repository.addNoteToJimCateringScan(result.timestamp, note)
                             }
                             lastResult = null
-                            currentScreen = Screen.SCANNER // go straight to next scan
+                            currentScreen = Screen.SCANNER
                         }
                     },
                     onSkip = {
                         lastResult = null
-                        currentScreen = Screen.SCANNER // go straight to next scan
+                        currentScreen = Screen.SCANNER
                     },
                     onScanBadgeForNote = {
                         noteScanTargetTimestamp = result.timestamp
@@ -426,6 +465,18 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 onBackClick = { currentScreen = Screen.HOME }
             )
         }
+        Screen.AREA2_MANAGER -> {
+            Area2ManagerScreen(
+                employees = area2Employees,
+                onAddEmployee = { name, company ->
+                    firebaseRepo.addArea2Employee(name, company)
+                },
+                onRemoveEmployee = { key ->
+                    firebaseRepo.removeArea2Employee(key)
+                },
+                onBackClick = { currentScreen = Screen.HOME }
+            )
+        }
     }
 }
 
@@ -435,11 +486,14 @@ private fun AdminDialog(
     pinInput: String,
     pinError: Boolean,
     isAppEnabled: Boolean,
+    isArea2Mode: Boolean,
     onPinChange: (String) -> Unit,
     onPinSubmit: () -> Unit,
     onToggleApp: (Boolean) -> Unit,
+    onToggleArea2Mode: (Boolean) -> Unit,
     onOpenWhitelist: () -> Unit,
     onOpenCompanyRules: () -> Unit,
+    onOpenArea2List: () -> Unit,
     onSendTestEmail: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -514,6 +568,44 @@ private fun AdminDialog(
                     ) {
                         Text("\uD83C\uDFE2  Manage Company Rules")
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // ── Area 2 section ──────────────────────────────────────
+                    // Area 2 Mode toggle button
+                    Button(
+                        onClick = { onToggleArea2Mode(!isArea2Mode) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isArea2Mode) Color(0xFF7C3AED) else Color(0xFF6B7280)
+                        )
+                    ) {
+                        Text(
+                            if (isArea2Mode) "🏠  Exit Area 2 Mode" else "🏠  Area 2 Mode"
+                        )
+                    }
+                    Text(
+                        text = if (isArea2Mode)
+                            "⚠️ Active on ALL devices. Only Area 2 people can enter. Tap to exit."
+                        else
+                            "Switch ALL devices to secondary canteen mode. Persists across restarts.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isArea2Mode) Color(0xFF7C3AED) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+
+                    // Area 2 List button
+                    Button(
+                        onClick = onOpenArea2List,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))
+                    ) {
+                        Text("📋  Area 2 List")
+                    }
+                    Text(
+                        text = "Manage the people authorised for the secondary canteen.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
 
                     Spacer(modifier = Modifier.height(4.dp))
 

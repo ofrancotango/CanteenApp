@@ -71,6 +71,7 @@ fun HomeScreen(
     deniedCount: Int,
     dayCount: Int,
     nightCount: Int,
+    isArea2Mode: Boolean = false,
     onScanClick: () -> Unit,
     onStatsClick: () -> Unit,
     onTodayUsersClick: () -> Unit,
@@ -130,6 +131,37 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Area 2 Mode banner
+        if (isArea2Mode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(androidx.compose.ui.graphics.Color(0xFF7C3AED))
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🏠", fontSize = 18.sp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "AREA 2 MODE",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Secondary canteen — restricted access",
+                            color = Color.White.copy(alpha = 0.75f),
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
         // Header
         Text(
             text = "Streicher Group",
@@ -138,7 +170,7 @@ fun HomeScreen(
             color = AppMuted
         )
         Text(
-            text = "Canteen",
+            text = if (isArea2Mode) "Area 2" else "Canteen",
             style = MaterialTheme.typography.displaySmall.copy(fontSize = 34.sp),
             fontWeight = FontWeight.Bold,
             color = AppText

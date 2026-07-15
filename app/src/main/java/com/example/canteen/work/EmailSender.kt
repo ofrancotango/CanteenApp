@@ -24,25 +24,36 @@ object EmailSender {
     fun sendDailyReport(context: Context, events: List<ScanEvent>) {
         val dateStr = SimpleDateFormat("EEEE, MMMM dd yyyy", Locale.ENGLISH).format(Date())
         val csvDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val html = buildHtmlReport(events, dateStr)
+        val csvData = buildCsv(events)
+        val csvFilename = "scan_logs_$csvDate.csv"
+        sendEmail("Canteen Report – $dateStr", html, csvData, csvFilename)
+    }
+
+    fun buildHtmlReport(events: List<ScanEvent>, dateStr: String): String {
         val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
 
-        val admitted = events.count { it.result == "SUCCESS" }
-        val bonus    = events.count { it.result == "BONUS" }
-        val denied   = events.count { it.result == "DENIED" }
+        // ── Main canteen ──────────────────────────────────────────────────────
+        val mainEvents  = events.filter { it.area != "AREA2" }
+        val area2Events = events.filter { it.area == "AREA2" }
 
-        // Shift breakdown by unique workers
-        val dayEvents = events.filter { it.shift == "DAY" }
-        val nightEvents = events.filter { it.shift == "NIGHT" }
-        val dayAdmitted = dayEvents.count { it.result == "SUCCESS" }
-        val dayBonus    = dayEvents.count { it.result == "BONUS" }
-        val dayDenied   = dayEvents.count { it.result == "DENIED" }
+        val admitted = mainEvents.count { it.result == "SUCCESS" }
+        val bonus    = mainEvents.count { it.result == "BONUS" }
+        val denied   = mainEvents.count { it.result == "DENIED" }
+
+        val dayEvents   = mainEvents.filter { it.shift == "DAY" }
+        val nightEvents = mainEvents.filter { it.shift == "NIGHT" }
+        val dayAdmitted   = dayEvents.count { it.result == "SUCCESS" }
+        val dayBonus      = dayEvents.count { it.result == "BONUS" }
+        val dayDenied     = dayEvents.count { it.result == "DENIED" }
         val nightAdmitted = nightEvents.count { it.result == "SUCCESS" }
         val nightBonus    = nightEvents.count { it.result == "BONUS" }
         val nightDenied   = nightEvents.count { it.result == "DENIED" }
+
         val shiftSummary = """
   <div style="padding:0 32px 24px;">
     <div style="background:#FAFAFA;border-radius:10px;padding:16px 20px;border:1px solid #F0F0F0;">
-      <p style="margin:0 0 12px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Entries by shift</p>
+      <p style="margin:0 0 12px;font-size:12px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Main canteen — Entries by shift</p>
       <div style="display:flex;gap:16px;">
         <div style="flex:1;background:#F0FDF4;border-radius:6px;padding:12px 14px;">
           <div style="font-size:11px;color:#888;margin-bottom:2px;">DAY (06-15)</div>
@@ -58,7 +69,7 @@ object EmailSender {
     </div>
   </div>"""
 
-        val noteEvents = events.filter { !it.note.isNullOrBlank() }
+        val noteEvents = mainEvents.filter { !it.note.isNullOrBlank() }
         val notesSection = if (noteEvents.isNotEmpty()) {
             val noteRows = noteEvents.joinToString("") { e ->
                 val name = e.matchedName ?: e.scannedCode
@@ -87,23 +98,88 @@ object EmailSender {
   </div>"""
         } else ""
 
-        val rows = events.joinToString("") { e ->
+        val rows = mainEvents.joinToString("") { e ->
             val color = when (e.result) {
                 "SUCCESS" -> "#22C55E"
                 "BONUS"   -> "#F59E0B"
                 else      -> "#EF4444"
             }
+            val shiftLabel = if (e.shift == "DAY") "D" else "N"
             val noteCell = if (e.note != null) "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#666;font-size:11px;font-style:italic;'>${e.note}</td>" else "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#aaa;font-size:11px;'>-</td>"
             "<tr>" +
             "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;'>${e.matchedName ?: e.scannedCode}</td>" +
             "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;'>${e.company ?: ""}</td>" +
             "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;font-weight:600;color:$color;'>${e.result}</td>" +
+            "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;font-size:11px;'>$shiftLabel</td>" +
             noteCell +
             "<td style='padding:8px 12px;border-bottom:1px solid #F0F0F0;color:#888;'>${timeFmt.format(Date(e.timestamp))}</td>" +
             "</tr>"
         }
 
-        val html = """
+        // ── Area 2 section ────────────────────────────────────────────────────
+        val area2Section = if (area2Events.isNotEmpty()) {
+            val a2Admitted = area2Events.count { it.result == "SUCCESS" }
+            val a2Bonus    = area2Events.count { it.result == "BONUS" }
+            val a2Denied   = area2Events.count { it.result == "DENIED" }
+
+            val a2Rows = area2Events.joinToString("") { e ->
+                val color = when (e.result) {
+                    "SUCCESS" -> "#22C55E"
+                    "BONUS"   -> "#F59E0B"
+                    else      -> "#EF4444"
+                }
+                val shiftLabel = if (e.shift == "DAY") "D" else "N"
+                val noteCell = if (e.note != null) "<td style='padding:8px 12px;border-bottom:1px solid #EDE9FE;color:#666;font-size:11px;font-style:italic;'>${e.note}</td>" else "<td style='padding:8px 12px;border-bottom:1px solid #EDE9FE;color:#aaa;font-size:11px;'>-</td>"
+                "<tr>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #EDE9FE;'>${e.matchedName ?: e.scannedCode}</td>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #EDE9FE;color:#888;'>${e.company ?: ""}</td>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #EDE9FE;font-weight:600;color:$color;'>${e.result}</td>" +
+                "<td style='padding:8px 12px;border-bottom:1px solid #EDE9FE;color:#888;font-size:11px;'>$shiftLabel</td>" +
+                noteCell +
+                "<td style='padding:8px 12px;border-bottom:1px solid #EDE9FE;color:#888;'>${timeFmt.format(Date(e.timestamp))}</td>" +
+                "</tr>"
+            }
+
+            """
+  <div style="padding:0 32px 24px;">
+    <div style="background:#F5F3FF;border-radius:12px;padding:20px 24px;border:1px solid #DDD6FE;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <div style="font-size:20px;">🏠</div>
+        <div>
+          <p style="margin:0;font-size:14px;font-weight:700;color:#7C3AED;">Area 2 — Secondary Canteen</p>
+          <p style="margin:2px 0 0;font-size:12px;color:#A78BFA;">${area2Events.size} total scans · ${a2Admitted + a2Bonus} admitted · ${a2Denied} denied</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <div style="flex:1;background:#fff;border-radius:8px;padding:12px 14px;border:1px solid #DDD6FE;">
+          <div style="font-size:24px;font-weight:700;color:#22C55E;">${a2Admitted + a2Bonus}</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;">Admitted</div>
+        </div>
+        <div style="flex:1;background:#fff;border-radius:8px;padding:12px 14px;border:1px solid #DDD6FE;">
+          <div style="font-size:24px;font-weight:700;color:#F59E0B;">$a2Bonus</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;">Bonus</div>
+        </div>
+        <div style="flex:1;background:#fff;border-radius:8px;padding:12px 14px;border:1px solid #DDD6FE;">
+          <div style="font-size:24px;font-weight:700;color:#EF4444;">$a2Denied</div>
+          <div style="font-size:10px;color:#888;margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;">Denied</div>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#EDE9FE;">
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#7C3AED;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Name</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#7C3AED;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Company</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#7C3AED;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Result</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#7C3AED;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Shift</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#7C3AED;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Note</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#7C3AED;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Time</th>
+        </tr></thead>
+        <tbody>$a2Rows</tbody>
+      </table>
+    </div>
+  </div>"""
+        } else ""
+
+        return """
 <!DOCTYPE html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F8F8F8;margin:0;padding:24px;">
 <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
   <div style="background:#111;padding:28px 32px;">
@@ -132,26 +208,24 @@ $notesSection
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Name</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Company</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Result</th>
+        <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Shift</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Note</th>
         <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Time</th>
       </tr></thead>
       <tbody>$rows</tbody>
     </table>
   </div>
+$area2Section
   <div style="padding:16px 32px;background:#F8F8F8;border-top:1px solid #F0F0F0;">
     <p style="margin:0;font-size:12px;color:#aaa;">Sent automatically by Canteen Access System</p>
   </div>
 </div>
 </body></html>""".trimIndent()
-
-        val csvData = buildCsv(events)
-        val csvFilename = "scan_logs_$csvDate.csv"
-        sendEmail("Canteen Report – $dateStr", html, csvData, csvFilename)
     }
 
     fun buildCsv(events: List<ScanEvent>): String {
         val sb = StringBuilder()
-        sb.append("ID;Time;Code;MatchedName;Company;Result;Reason;Shift;Note\n")
+        sb.append("ID;Time;Code;MatchedName;Company;Result;Reason;Shift;Area;Note\n")
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
 
         fun csvField(value: String?): String {
@@ -169,7 +243,7 @@ $notesSection
 
         events.forEach { e ->
             val timeStr = sdf.format(Date(e.timestamp))
-            sb.append("${e.id};$timeStr;${csvField(e.scannedCode)};${csvField(e.matchedName)};${csvField(e.company)};${csvField(e.result)};${csvField(e.reason)};${csvField(e.shift)};${csvField(e.note)}\n")
+            sb.append("${e.id};$timeStr;${csvField(e.scannedCode)};${csvField(e.matchedName)};${csvField(e.company)};${csvField(e.result)};${csvField(e.reason)};${csvField(e.shift)};${csvField(e.area)};${csvField(e.note)}\n")
         }
         return sb.toString()
     }

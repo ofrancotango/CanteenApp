@@ -42,12 +42,21 @@ class FirebaseSyncRepository {
     private val _manualEmployees = MutableStateFlow<List<FirebaseEmployee>>(emptyList())
     val manualEmployees: StateFlow<List<FirebaseEmployee>> = _manualEmployees
 
+    // ── Area 2 ──────────────────────────────────────────────────────────────
+    private val _isArea2Mode = MutableStateFlow(false)
+    val isArea2Mode: StateFlow<Boolean> = _isArea2Mode
+
+    private val _area2Employees = MutableStateFlow<List<FirebaseEmployee>>(emptyList())
+    val area2Employees: StateFlow<List<FirebaseEmployee>> = _area2Employees
+
     private var killSwitchListener: ValueEventListener? = null
     private var todayScansListener: ValueEventListener? = null
     private var allowedCompaniesListener: ValueEventListener? = null
     private var forbiddenCompaniesListener: ValueEventListener? = null
     private var forbiddenEmployeesListener: ValueEventListener? = null
     private var manualEmployeesListener: ValueEventListener? = null
+    private var area2ModeListener: ValueEventListener? = null
+    private var area2EmployeesListener: ValueEventListener? = null
     private var currentTodayDate: String = ""
 
     companion object {
@@ -70,6 +79,8 @@ class FirebaseSyncRepository {
         listenToForbiddenCompanies()
         listenToForbiddenEmployees()
         listenToManualEmployees()
+        listenToArea2Mode()
+        listenToArea2Employees()
     }
 
     private fun listenToKillSwitch() {
@@ -96,7 +107,7 @@ class FirebaseSyncRepository {
                         val timestamp = child.child("timestamp").getValue(Long::class.java) ?: 0L
                         val deviceId = child.child("deviceId").getValue(String::class.java) ?: ""
                         scans.add(CloudScan(name, company, result, timestamp, deviceId))
-                    } catch (e: Exception) { e.printStackTrace() }
+                    } catch (_: Exception) {}
                 }
                 _todayCloudScans.value = scans.sortedByDescending { it.timestamp }
             }
@@ -108,22 +119,14 @@ class FirebaseSyncRepository {
     private fun listenToAllowedCompanies() {
         allowedCompaniesListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (!snapshot.exists()) {
-                    // First run: initialize with defaults
-                    initializeDefaultAllowedCompanies()
-                    _allowedCompanies.value = DEFAULT_ALLOWED_COMPANIES
-                    return
-                }
-                val set = mutableSetOf<String>()
+                val companies = mutableSetOf<String>()
                 for (child in snapshot.children) {
-                    val enabled = child.getValue(Boolean::class.java) ?: true
-                    if (enabled) set.add(child.key ?: continue)
+                    val enabled = child.getValue(Boolean::class.java) ?: false
+                    if (enabled) companies.add(child.key?.replace("_", " ") ?: "")
                 }
-                _allowedCompanies.value = if (set.isEmpty()) DEFAULT_ALLOWED_COMPANIES else set
+                if (companies.isNotEmpty()) _allowedCompanies.value = companies
             }
-            override fun onCancelled(error: DatabaseError) {
-                _allowedCompanies.value = DEFAULT_ALLOWED_COMPANIES
-            }
+            override fun onCancelled(error: DatabaseError) {}
         }
         configRef.child("allowedCompanies").addValueEventListener(allowedCompaniesListener!!)
     }
@@ -131,21 +134,14 @@ class FirebaseSyncRepository {
     private fun listenToForbiddenCompanies() {
         forbiddenCompaniesListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (!snapshot.exists()) {
-                    initializeDefaultForbiddenCompanies()
-                    _forbiddenCompanies.value = DEFAULT_FORBIDDEN_COMPANIES
-                    return
-                }
-                val set = mutableSetOf<String>()
+                val companies = mutableSetOf<String>()
                 for (child in snapshot.children) {
-                    val enabled = child.getValue(Boolean::class.java) ?: true
-                    if (enabled) set.add(child.key ?: continue)
+                    val enabled = child.getValue(Boolean::class.java) ?: false
+                    if (enabled) companies.add(child.key?.replace("_", " ") ?: "")
                 }
-                _forbiddenCompanies.value = set
+                if (companies.isNotEmpty()) _forbiddenCompanies.value = companies
             }
-            override fun onCancelled(error: DatabaseError) {
-                _forbiddenCompanies.value = DEFAULT_FORBIDDEN_COMPANIES
-            }
+            override fun onCancelled(error: DatabaseError) {}
         }
         configRef.child("forbiddenCompanies").addValueEventListener(forbiddenCompaniesListener!!)
     }
@@ -153,21 +149,14 @@ class FirebaseSyncRepository {
     private fun listenToForbiddenEmployees() {
         forbiddenEmployeesListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (!snapshot.exists()) {
-                    initializeDefaultForbiddenEmployees()
-                    _forbiddenEmployees.value = DEFAULT_FORBIDDEN_EMPLOYEES
-                    return
-                }
-                val set = mutableSetOf<String>()
+                val employees = mutableSetOf<String>()
                 for (child in snapshot.children) {
-                    val enabled = child.getValue(Boolean::class.java) ?: true
-                    if (enabled) set.add(child.key?.replace("_", " ") ?: continue)
+                    val enabled = child.getValue(Boolean::class.java) ?: false
+                    if (enabled) employees.add(child.key?.replace("_", " ") ?: "")
                 }
-                _forbiddenEmployees.value = set
+                if (employees.isNotEmpty()) _forbiddenEmployees.value = employees
             }
-            override fun onCancelled(error: DatabaseError) {
-                _forbiddenEmployees.value = DEFAULT_FORBIDDEN_EMPLOYEES
-            }
+            override fun onCancelled(error: DatabaseError) {}
         }
         configRef.child("forbiddenEmployees").addValueEventListener(forbiddenEmployeesListener!!)
     }
@@ -175,47 +164,65 @@ class FirebaseSyncRepository {
     private fun listenToManualEmployees() {
         manualEmployeesListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<FirebaseEmployee>()
+                val employees = mutableListOf<FirebaseEmployee>()
                 for (child in snapshot.children) {
-                    val key = child.key ?: continue
                     val name = child.child("name").getValue(String::class.java) ?: continue
                     val company = child.child("company").getValue(String::class.java) ?: "ManualWhitelist"
-                    list.add(FirebaseEmployee(key, name, company))
+                    employees.add(FirebaseEmployee(child.key ?: "", name, company))
                 }
-                _manualEmployees.value = list.sortedBy { it.name }
+                _manualEmployees.value = employees
             }
             override fun onCancelled(error: DatabaseError) {}
         }
         configRef.child("manualEmployees").addValueEventListener(manualEmployeesListener!!)
     }
 
-    // ── Company Rules Write Methods ──────────────────────────────────────────
+    // ── Area 2 listeners ────────────────────────────────────────────────────
 
-    fun addAllowedCompany(company: String) {
-        val safeKey = company.replace(".", "_")
-        configRef.child("allowedCompanies").child(safeKey).setValue(true)
-        // If it was forbidden, remove from forbidden
-        configRef.child("forbiddenCompanies").child(safeKey).removeValue()
+    private fun listenToArea2Mode() {
+        area2ModeListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                _isArea2Mode.value = snapshot.getValue(Boolean::class.java) ?: false
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        configRef.child("area2Mode").addValueEventListener(area2ModeListener!!)
     }
 
-    fun removeAllowedCompany(company: String) {
-        val safeKey = company.replace(".", "_")
-        configRef.child("allowedCompanies").child(safeKey).setValue(false)
+    private fun listenToArea2Employees() {
+        area2EmployeesListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val employees = mutableListOf<FirebaseEmployee>()
+                for (child in snapshot.children) {
+                    val name = child.child("name").getValue(String::class.java) ?: continue
+                    val company = child.child("company").getValue(String::class.java) ?: "Area2"
+                    employees.add(FirebaseEmployee(child.key ?: "", name, company))
+                }
+                _area2Employees.value = employees
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        configRef.child("area2Employees").addValueEventListener(area2EmployeesListener!!)
     }
 
-    fun addForbiddenCompany(company: String) {
-        val safeKey = company.replace(".", "_")
-        configRef.child("forbiddenCompanies").child(safeKey).setValue(true)
-        // If it was allowed, remove from allowed
-        configRef.child("allowedCompanies").child(safeKey).setValue(false)
+    // ── Writes ───────────────────────────────────────────────────────────────
+
+    fun setAppEnabled(enabled: Boolean) {
+        configRef.child("appEnabled").setValue(enabled)
     }
 
-    fun removeForbiddenCompany(company: String) {
-        val safeKey = company.replace(".", "_")
-        configRef.child("forbiddenCompanies").child(safeKey).setValue(false)
+    fun setArea2Mode(enabled: Boolean) {
+        configRef.child("area2Mode").setValue(enabled)
     }
 
-    // ── Manual Employee Write Methods ────────────────────────────────────────
+    fun addArea2Employee(name: String, company: String) {
+        val data = mapOf("name" to name, "company" to company)
+        configRef.child("area2Employees").push().setValue(data)
+    }
+
+    fun removeArea2Employee(key: String) {
+        configRef.child("area2Employees").child(key).removeValue()
+    }
 
     fun addManualEmployee(name: String, company: String) {
         val data = mapOf("name" to name, "company" to company)
@@ -226,39 +233,20 @@ class FirebaseSyncRepository {
         configRef.child("manualEmployees").child(key).removeValue()
     }
 
-    // ── Forbidden Employees Write Methods ────────────────────────────────────
-
-    fun addForbiddenEmployee(name: String) {
-        val safeKey = name.replace(" ", "_")
-        configRef.child("forbiddenEmployees").child(safeKey).setValue(true)
+    fun addAllowedCompany(name: String) {
+        configRef.child("allowedCompanies").child(name.replace(" ", "_")).setValue(true)
     }
 
-    fun removeForbiddenEmployee(name: String) {
-        val safeKey = name.replace(" ", "_")
-        configRef.child("forbiddenEmployees").child(safeKey).setValue(false)
+    fun removeAllowedCompany(name: String) {
+        configRef.child("allowedCompanies").child(name.replace(" ", "_")).removeValue()
     }
 
-    // ── Default Initializers (first-run only) ────────────────────────────────
-
-    private fun initializeDefaultAllowedCompanies() {
-        val data = DEFAULT_ALLOWED_COMPANIES.associate { it.replace(".", "_") to true }
-        configRef.child("allowedCompanies").setValue(data)
+    fun addForbiddenCompany(name: String) {
+        configRef.child("forbiddenCompanies").child(name.replace(" ", "_")).setValue(true)
     }
 
-    private fun initializeDefaultForbiddenCompanies() {
-        val data = DEFAULT_FORBIDDEN_COMPANIES.associate { it.replace(".", "_") to true }
-        configRef.child("forbiddenCompanies").setValue(data)
-    }
-
-    private fun initializeDefaultForbiddenEmployees() {
-        val data = DEFAULT_FORBIDDEN_EMPLOYEES.associate { it.replace(" ", "_") to true }
-        configRef.child("forbiddenEmployees").setValue(data)
-    }
-
-    // ── Misc ─────────────────────────────────────────────────────────────────
-
-    fun setAppEnabled(enabled: Boolean) {
-        configRef.child("appEnabled").setValue(enabled)
+    fun removeForbiddenCompany(name: String) {
+        configRef.child("forbiddenCompanies").child(name.replace(" ", "_")).removeValue()
     }
 
     fun pushScan(name: String, company: String, result: String, timestamp: Long, deviceId: String) {
@@ -282,6 +270,21 @@ class FirebaseSyncRepository {
         }
     }
 
+    fun initializeDefaultAllowedCompanies() {
+        val data = DEFAULT_ALLOWED_COMPANIES.associate { it.replace(" ", "_") to true }
+        configRef.child("allowedCompanies").setValue(data)
+    }
+
+    fun initializeDefaultForbiddenCompanies() {
+        val data = DEFAULT_FORBIDDEN_COMPANIES.associate { it.replace(".", "_") to true }
+        configRef.child("forbiddenCompanies").setValue(data)
+    }
+
+    fun initializeDefaultForbiddenEmployees() {
+        val data = DEFAULT_FORBIDDEN_EMPLOYEES.associate { it.replace(" ", "_") to true }
+        configRef.child("forbiddenEmployees").setValue(data)
+    }
+
     fun stopListening() {
         killSwitchListener?.let { configRef.child("appEnabled").removeEventListener(it) }
         todayScansListener?.let { scansRef.child(currentTodayDate).removeEventListener(it) }
@@ -289,6 +292,8 @@ class FirebaseSyncRepository {
         forbiddenCompaniesListener?.let { configRef.child("forbiddenCompanies").removeEventListener(it) }
         forbiddenEmployeesListener?.let { configRef.child("forbiddenEmployees").removeEventListener(it) }
         manualEmployeesListener?.let { configRef.child("manualEmployees").removeEventListener(it) }
+        area2ModeListener?.let { configRef.child("area2Mode").removeEventListener(it) }
+        area2EmployeesListener?.let { configRef.child("area2Employees").removeEventListener(it) }
     }
 
     private fun getTodayString(): String =
