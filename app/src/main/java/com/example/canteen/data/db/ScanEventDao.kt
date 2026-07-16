@@ -27,14 +27,26 @@ interface ScanEventDao {
     @Query("SELECT * FROM scan_events WHERE timestamp >= (strftime('%s', 'now', 'localtime', 'start of day') * 1000) ORDER BY timestamp DESC")
     fun getTodayAllScans(): Flow<List<ScanEvent>>
 
+    @Query("SELECT * FROM scan_events WHERE area = :area AND timestamp >= (strftime('%s', 'now', 'localtime', 'start of day') * 1000) ORDER BY timestamp DESC")
+    fun getTodayAllScansByArea(area: String): Flow<List<ScanEvent>>
+
     @Query("SELECT COUNT(*) FROM scan_events WHERE result IN ('SUCCESS', 'BONUS') AND timestamp >= (strftime('%s', 'now', 'localtime', 'start of day') * 1000)")
     fun getTodayAdmittedCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM scan_events WHERE area = :area AND result IN ('SUCCESS', 'BONUS') AND timestamp >= (strftime('%s', 'now', 'localtime', 'start of day') * 1000)")
+    fun getTodayAdmittedCountByArea(area: String): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM scan_events WHERE result = 'DENIED' AND timestamp >= (strftime('%s', 'now', 'localtime', 'start of day') * 1000)")
     fun getTodayDeniedCount(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM scan_events WHERE area = :area AND result = 'DENIED' AND timestamp >= (strftime('%s', 'now', 'localtime', 'start of day') * 1000)")
+    fun getTodayDeniedCountByArea(area: String): Flow<Int>
+
     @Query("SELECT COUNT(*) FROM scan_events WHERE timestamp >= (strftime('%s', 'now', 'localtime', 'start of day') * 1000)")
     fun getTodayTotalCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM scan_events WHERE area = :area AND timestamp >= (strftime('%s', 'now', 'localtime', 'start of day') * 1000)")
+    fun getTodayTotalCountByArea(area: String): Flow<Int>
 
     @Query("UPDATE scan_events SET note = :note WHERE timestamp = :timestamp AND (company = 'JimCatering' OR company = 'Jim Catering')")
     suspend fun updateNoteByTimestamp(note: String, timestamp: Long)

@@ -10,6 +10,7 @@ import com.example.canteen.data.FirebaseEmployee
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -46,9 +47,15 @@ class AccessRepository(val context: Context) {
 
     // ── Area 2 ──────────────────────────────────────────────────────────────
     // Sticky: persisted in SharedPreferences so it survives restarts without internet.
+    // The current DB-area flow follows this flag so HOME counts are isolated per area.
+    private val _currentArea = MutableStateFlow("MAIN")
+
     var isArea2Mode: Boolean
         get() = prefs.getBoolean("area2_mode_active", false)
-        set(value) { prefs.edit().putBoolean("area2_mode_active", value).apply() }
+        set(value) {
+            prefs.edit().putBoolean("area2_mode_active", value).apply()
+            _currentArea.value = if (value) "AREA2" else "MAIN"
+        }
 
     // Area 2 employees — set from Firebase via applyArea2Employees().
     // Matching is fuzzy via smartTokenMatch so "Mario Rossi" ↔ "Rossi Mario" works.
@@ -65,11 +72,11 @@ class AccessRepository(val context: Context) {
         }
     }
 
-    // Real-time list of ALL today's scans — auto-refreshed via timer in MainActivity
+    // Real-time list of today's scans for the current area only
     private val _todayScans = MutableStateFlow<List<ScanEvent>>(emptyList())
     val todayScans: StateFlow<List<ScanEvent>> = _todayScans
 
-    // Real-time daily counts from database — single source of truth
+    // Real-time daily counts from database — filtered by current area
     private val _todayAdmittedCount = MutableStateFlow(0)
     val todayAdmittedCount: StateFlow<Int> = _todayAdmittedCount
     private val _todayDeniedCount = MutableStateFlow(0)
@@ -78,18 +85,27 @@ class AccessRepository(val context: Context) {
     val todayTotalCount: StateFlow<Int> = _todayTotalCount
 
     init {
-        // Start collecting DB flows into StateFlows
+        // Initialise area from persisted mode, then switch DB flows on mode changes.
+        _currentArea.value = if (isArea2Mode) "AREA2" else "MAIN"
         GlobalScope.launch(Dispatchers.IO) {
-            scanEventDao.getTodayAllScans().collect { _todayScans.value = it }
+            _currentArea.flatMapLatest { area ->
+                scanEventDao.getTodayAllScansByArea(area)
+            }.collect { _todayScans.value = it }
         }
         GlobalScope.launch(Dispatchers.IO) {
-            scanEventDao.getTodayAdmittedCount().collect { _todayAdmittedCount.value = it }
+            _currentArea.flatMapLatest { area ->
+                scanEventDao.getTodayAdmittedCountByArea(area)
+            }.collect { _todayAdmittedCount.value = it }
         }
         GlobalScope.launch(Dispatchers.IO) {
-            scanEventDao.getTodayDeniedCount().collect { _todayDeniedCount.value = it }
+            _currentArea.flatMapLatest { area ->
+                scanEventDao.getTodayDeniedCountByArea(area)
+            }.collect { _todayDeniedCount.value = it }
         }
         GlobalScope.launch(Dispatchers.IO) {
-            scanEventDao.getTodayTotalCount().collect { _todayTotalCount.value = it }
+            _currentArea.flatMapLatest { area ->
+                scanEventDao.getTodayTotalCountByArea(area)
+            }.collect { _todayTotalCount.value = it }
         }
     }
 

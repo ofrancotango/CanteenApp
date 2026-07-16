@@ -5,5 +5,6 @@ data class CloudScan(
     val company: String = "",
     val result: String = "",
     val timestamp: Long = 0L,
-    val deviceId: String = ""
+    val deviceId: String = "",
+    val area: String = "MAIN"
 )

@@ -102,7 +102,8 @@ class FirebaseSyncRepository {
                         val result = child.child("result").getValue(String::class.java) ?: ""
                         val timestamp = child.child("timestamp").getValue(Long::class.java) ?: 0L
                         val deviceId = child.child("deviceId").getValue(String::class.java) ?: ""
-                        scans.add(CloudScan(name, company, result, timestamp, deviceId))
+                        val area = child.child("area").getValue(String::class.java) ?: "MAIN"
+                        scans.add(CloudScan(name, company, result, timestamp, deviceId, area))
                     } catch (_: Exception) {}
                 }
                 _todayCloudScans.value = scans.sortedByDescending { it.timestamp }
@@ -233,14 +234,15 @@ class FirebaseSyncRepository {
         configRef.child("forbiddenCompanies").child(name.replace(" ", "_")).removeValue()
     }
 
-    fun pushScan(name: String, company: String, result: String, timestamp: Long, deviceId: String) {
+    fun pushScan(name: String, company: String, result: String, timestamp: Long, deviceId: String, area: String = "MAIN") {
         val today = getTodayString()
         val scan = mapOf(
             "name" to name,
             "company" to company,
             "result" to result,
             "timestamp" to timestamp,
-            "deviceId" to deviceId
+            "deviceId" to deviceId,
+            "area" to area
         )
         scansRef.child(today).push().setValue(scan)
     }

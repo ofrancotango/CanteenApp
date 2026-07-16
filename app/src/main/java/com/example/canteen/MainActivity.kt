@@ -280,25 +280,16 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         return
     }
 
-    // Cloud counts — filtered by area when in Area 2 mode
-    val area2CloudScans = if (isArea2Mode) {
-        cloudScans.filter { scan ->
-            area2Employees.any { it.name.equals(scan.name, ignoreCase = true) } ||
-            scan.name.equals("Jim Catering", ignoreCase = true)
-        }
-    } else cloudScans
+    // Counts are isolated per area: in Area 2 only AREA2 scans count, otherwise only MAIN scans.
+    val currentArea = if (isArea2Mode) "AREA2" else "MAIN"
+    val areaCloudScans = cloudScans.filter { it.area == currentArea }
 
-    val todayCloudAdmittedCount = if (isArea2Mode) {
-        area2CloudScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
-            .takeIf { cloudScans.isNotEmpty() } ?: todayAdmittedCount
-    } else {
-        cloudScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
-            .takeIf { cloudScans.isNotEmpty() } ?: todayAdmittedCount
-    }
+    val todayCloudAdmittedCount = areaCloudScans.count { it.result == "SUCCESS" || it.result == "BONUS" }
+        .takeIf { cloudScans.isNotEmpty() } ?: todayAdmittedCount
 
-    val todayCloudDayCount   = cloudScans.count { (it.result == "SUCCESS" || it.result == "BONUS") && shiftFor(it.timestamp) == "DAY"   }
+    val todayCloudDayCount   = areaCloudScans.count { (it.result == "SUCCESS" || it.result == "BONUS") && shiftFor(it.timestamp) == "DAY"   }
         .takeIf { cloudScans.isNotEmpty() } ?: 0
-    val todayCloudNightCount = cloudScans.count { (it.result == "SUCCESS" || it.result == "BONUS") && shiftFor(it.timestamp) == "NIGHT" }
+    val todayCloudNightCount = areaCloudScans.count { (it.result == "SUCCESS" || it.result == "BONUS") && shiftFor(it.timestamp) == "NIGHT" }
         .takeIf { cloudScans.isNotEmpty() } ?: 0
 
     val currentShift         = repository.getCurrentShift()
@@ -308,7 +299,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
     when (currentScreen) {
         Screen.HOME -> {
             HomeScreen(
-                scansToday = currentShiftCount,
+                scansToday = if (isArea2Mode) todayCloudAdmittedCount else currentShiftCount,
                 scanStatus = "$scanStatus (Last Err: ${repository.lastError ?: "None"})",
                 expectedAttendance = currentShiftExpected,
                 deniedCount = todayDeniedCount,
@@ -349,7 +340,8 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                                 company = company,
                                 result = if (isBonus) "BONUS" else "SUCCESS",
                                 timestamp = result.timestamp,
-                                deviceId = deviceId
+                                deviceId = deviceId,
+                                area = currentArea
                             )
                         }
                         is VerificationResult.Failure -> {
@@ -358,7 +350,8 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                                 company = result.company ?: "",
                                 result = "DENIED",
                                 timestamp = result.timestamp,
-                                deviceId = deviceId
+                                deviceId = deviceId,
+                                area = currentArea
                             )
                         }
                     }
@@ -431,7 +424,7 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
         Screen.TODAY_USERS -> {
             TodayUsersScreen(
                 localScans = todayLocalScans,
-                cloudScans = cloudScans,
+                cloudScans = areaCloudScans,
                 onBackClick = { currentScreen = Screen.HOME }
             )
         }
