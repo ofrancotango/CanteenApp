@@ -51,7 +51,6 @@ import com.example.canteen.ui.WhitelistManagerScreen
 import com.example.canteen.ui.theme.AppAccent
 import com.example.canteen.ui.theme.CanteenTheme
 import kotlinx.coroutines.launch
-import com.example.canteen.data.db.AppDatabase
 import com.example.canteen.work.EmailSender
 
 class MainActivity : ComponentActivity() {
@@ -240,24 +239,13 @@ fun AppNavigation(repository: AccessRepository, firebaseRepo: FirebaseSyncReposi
                 coroutineScope.launch {
                     try {
                         android.widget.Toast.makeText(context, "Sending email...", android.widget.Toast.LENGTH_SHORT).show()
-                        val db = AppDatabase.getDatabase(context)
-                        val dao = db.scanEventDao()
-                        val calendar = java.util.Calendar.getInstance().apply {
-                            set(java.util.Calendar.HOUR_OF_DAY, 0)
-                            set(java.util.Calendar.MINUTE, 0)
-                            set(java.util.Calendar.SECOND, 0)
-                            set(java.util.Calendar.MILLISECOND, 0)
+                        val sent = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            EmailSender.sendDailyReportFromFirebase(context)
                         }
-                        val start = calendar.timeInMillis
-                        val end = start + 24 * 60 * 60 * 1000L
-                        val events = dao.getEventsByDate(start, end)
-                        if (events.isEmpty()) {
-                            android.widget.Toast.makeText(context, "No scans today, nothing to send.", android.widget.Toast.LENGTH_LONG).show()
-                        } else {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                EmailSender.sendDailyReport(context, events)
-                            }
+                        if (sent) {
                             android.widget.Toast.makeText(context, "Email sent successfully!", android.widget.Toast.LENGTH_LONG).show()
+                        } else {
+                            android.widget.Toast.makeText(context, "No scans today, nothing to send.", android.widget.Toast.LENGTH_LONG).show()
                         }
                     } catch (e: Exception) {
                         android.widget.Toast.makeText(context, "Email error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()

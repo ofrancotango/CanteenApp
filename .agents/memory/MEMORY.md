@@ -1,0 +1,1 @@
+- [Daily report data source](daily-report-data-source.md) — build the daily email from Firebase, not the local DB, so any device can send the full summary.

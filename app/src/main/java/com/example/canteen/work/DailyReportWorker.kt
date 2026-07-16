@@ -5,10 +5,11 @@ import android.content.SharedPreferences
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.Constraints
+import androidx.work.NetworkType
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.canteen.data.EmailConfig
-import com.example.canteen.data.db.AppDatabase
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -53,21 +54,19 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
         if (!forceSend && isAlreadySentToday()) return Result.success()
 
         return try {
-            val db = AppDatabase.getDatabase(applicationContext)
-            val dao = db.scanEventDao()
-
-            val calendar = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            val startOfDay = calendar.timeInMillis
-            val endOfDay = startOfDay + 24 * 60 * 60 * 1000L
-
-            val events = dao.getEventsByDate(startOfDay, endOfDay)
+            // Fetch today's scans from Firebase so the report contains all devices, not just this phone.
+            val events = EmailSender.fetchTodayEventsFromFirebase()
             if (events.isEmpty()) return Result.success()
 
+            val startOfDay = run {
+                val calendar = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                calendar.timeInMillis
+            }
             val dateStr = SimpleDateFormat("EEEE, MMMM dd yyyy", Locale.ENGLISH).format(Date(startOfDay))
             val csvDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(startOfDay))
 
@@ -102,8 +101,13 @@ class DailyReportWorker(context: Context, params: WorkerParameters) : CoroutineW
         }
         val delayMs = target.timeInMillis - now.timeInMillis
 
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
         val request = OneTimeWorkRequestBuilder<DailyReportWorker>()
             .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .setConstraints(constraints)
             .build()
 
         workManager.enqueueUniqueWork(

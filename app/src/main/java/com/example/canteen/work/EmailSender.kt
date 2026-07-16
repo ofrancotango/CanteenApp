@@ -1,9 +1,10 @@
 package com.example.canteen.work
 
 import android.content.Context
+import com.example.canteen.data.CloudScan
 import com.example.canteen.data.EmailConfig
-import com.example.canteen.data.db.AppDatabase
 import com.example.canteen.data.db.ScanEvent
+import com.google.firebase.database.FirebaseDatabase
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -18,6 +19,7 @@ import javax.mail.internet.InternetAddress
 import javax.mail.internet.MimeBodyPart
 import javax.mail.internet.MimeMessage
 import javax.mail.internet.MimeMultipart
+import kotlinx.coroutines.tasks.await
 
 object EmailSender {
 
@@ -28,6 +30,60 @@ object EmailSender {
         val csvData = buildCsv(events)
         val csvFilename = "scan_logs_$csvDate.csv"
         sendEmail("Canteen Report – $dateStr", html, csvData, csvFilename)
+    }
+
+    /**
+     * Downloads today's scan events from Firebase.
+     * Scans without an explicit "area" field are treated as MAIN.
+     */
+    suspend fun fetchTodayEventsFromFirebase(): List<ScanEvent> {
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val scansRef = FirebaseDatabase
+            .getInstance("https://app-cant-default-rtdb.firebaseio.com/")
+            .getReference("scans")
+            .child(today)
+
+        val snapshot = scansRef.get().await()
+        return snapshot.children.mapNotNull { child ->
+            try {
+                val name = child.child("name").getValue(String::class.java) ?: ""
+                val company = child.child("company").getValue(String::class.java) ?: ""
+                val result = child.child("result").getValue(String::class.java) ?: ""
+                val timestamp = child.child("timestamp").getValue(Long::class.java) ?: 0L
+                val deviceId = child.child("deviceId").getValue(String::class.java) ?: ""
+                val area = child.child("area").getValue(String::class.java) ?: "MAIN"
+                CloudScan(name, company, result, timestamp, deviceId, area)
+            } catch (_: Exception) { null }
+        }.sortedByDescending { it.timestamp }
+            .map { cloudScanToScanEvent(it) }
+    }
+
+    /**
+     * Downloads today's scan events from Firebase and sends the daily report.
+     * This ensures the report includes scans from all devices, not just the local DB.
+     * Returns true if events were found and the email was sent, false if no events exist yet.
+     */
+    suspend fun sendDailyReportFromFirebase(context: Context): Boolean {
+        val events = fetchTodayEventsFromFirebase()
+        if (events.isEmpty()) return false
+        sendDailyReport(context, events)
+        return true
+    }
+
+    private fun cloudScanToScanEvent(scan: CloudScan): ScanEvent {
+        val cal = Calendar.getInstance().apply { timeInMillis = scan.timestamp }
+        val minutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+        val shift = if (minutes in 360 until 900) "DAY" else "NIGHT"
+        return ScanEvent(
+            timestamp = scan.timestamp,
+            scannedCode = "",
+            matchedName = scan.name,
+            company = scan.company,
+            result = scan.result,
+            reason = null,
+            shift = shift,
+            area = scan.area
+        )
     }
 
     fun buildHtmlReport(events: List<ScanEvent>, dateStr: String): String {
