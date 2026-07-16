@@ -6,6 +6,7 @@ import com.example.canteen.data.db.AppDatabase
 import com.example.canteen.data.db.DailyStats
 import com.example.canteen.data.db.ScanEvent
 import com.example.canteen.utils.StringNormalizer
+import com.example.canteen.data.FirebaseEmployee
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,18 +50,18 @@ class AccessRepository(val context: Context) {
         get() = prefs.getBoolean("area2_mode_active", false)
         set(value) { prefs.edit().putBoolean("area2_mode_active", value).apply() }
 
-    // Area 2 employee names (raw) — set from Firebase via applyArea2Employees().
+    // Area 2 employees — set from Firebase via applyArea2Employees().
     // Matching is fuzzy via smartTokenMatch so "Mario Rossi" ↔ "Rossi Mario" works.
-    private var area2EmployeeNames: List<String> = emptyList()
+    private var area2Employees: List<FirebaseEmployee> = emptyList()
 
     fun applyArea2Employees(employees: List<FirebaseEmployee>) {
-        area2EmployeeNames = employees.map { it.name.trim() }.filter { it.isNotBlank() }
+        area2Employees = employees
     }
 
-    private fun isInArea2List(employeeName: String): Boolean {
-        return area2EmployeeNames.any { area2Name ->
-            StringNormalizer.smartTokenMatch(employeeName, area2Name) ||
-            StringNormalizer.smartTokenMatch(area2Name, employeeName)
+    private fun findArea2Employee(scannedInput: String): FirebaseEmployee? {
+        return area2Employees.firstOrNull { emp ->
+            StringNormalizer.smartTokenMatch(scannedInput, emp.name) ||
+            StringNormalizer.smartTokenMatch(emp.name, scannedInput)
         }
     }
 
@@ -288,6 +289,86 @@ class AccessRepository(val context: Context) {
         val shift = getCurrentShift()
         val currentArea = if (isArea2Mode) "AREA2" else "MAIN"
 
+        // ── AREA 2 MODE: the ONLY rule is being in the Area 2 manual list ────
+        if (isArea2Mode) {
+            val area2Emp = findArea2Employee(cleanedInput)
+            if (area2Emp == null) {
+                logEvent(timestamp, scannedInput, null, null, "DENIED", "NOT_IN_AREA2", currentArea)
+                return VerificationResult.Failure(
+                    VerificationResult.Failure.Reason.BLACK_LISTED,
+                    scannedInput,
+                    timestamp = timestamp
+                )
+            }
+
+            val matchedKey = StringNormalizer.normalize(area2Emp.name)
+            val countKey = "area2_count_${matchedKey}_$shift"
+            val currentUsage = prefs.getInt(countKey, 0)
+            val allowance = 1
+
+            if (currentUsage < allowance) {
+                val newCount = currentUsage + 1
+                prefs.edit().putInt(countKey, newCount).apply()
+                GlobalScope.launch(Dispatchers.IO) {
+                    syncStatsToDb()
+                    updateScanCountFlow()
+                    scanEventDao.insert(ScanEvent(
+                        timestamp = timestamp,
+                        scannedCode = scannedInput,
+                        matchedName = area2Emp.name,
+                        company = area2Emp.company,
+                        result = "SUCCESS",
+                        reason = "AREA2_LIST",
+                        shift = shift,
+                        area = currentArea
+                    ))
+                }
+                return VerificationResult.Success(
+                    originalName = scannedInput,
+                    normalizedName = normalizedInput,
+                    matchedName = area2Emp.name,
+                    isFuzzyMatch = true,
+                    timestamp = timestamp
+                )
+            } else {
+                // Bonus per turno in Area 2
+                val bonusKey = "area2_bonus_used_$shift"
+                val usedBonus = prefs.getInt(bonusKey, 0)
+                if (usedBonus < DAILY_BONUS_THRESHOLD) {
+                    val newBonus = usedBonus + 1
+                    prefs.edit().putInt(bonusKey, newBonus).apply()
+                    GlobalScope.launch(Dispatchers.IO) {
+                        syncStatsToDb()
+                        updateScanCountFlow()
+                        scanEventDao.insert(ScanEvent(
+                            timestamp = timestamp,
+                            scannedCode = scannedInput,
+                            matchedName = area2Emp.name,
+                            company = area2Emp.company,
+                            result = "BONUS",
+                            reason = "LIMIT_REACHED_BONUS($newBonus/$DAILY_BONUS_THRESHOLD)",
+                            shift = shift,
+                            area = currentArea
+                        ))
+                    }
+                    return VerificationResult.Success(
+                        originalName = scannedInput,
+                        normalizedName = normalizedInput,
+                        matchedName = area2Emp.name + " (BONUS)",
+                        isFuzzyMatch = true,
+                        timestamp = timestamp
+                    )
+                } else {
+                    logEvent(timestamp, scannedInput, area2Emp.name, area2Emp.company, "DENIED", "LIMIT_REACHED", currentArea)
+                    return VerificationResult.Failure(
+                        VerificationResult.Failure.Reason.LIMIT_REACHED,
+                        scannedInput,
+                        timestamp = timestamp
+                    )
+                }
+            }
+        }
+
         // --- 0. NIGHT SHIFT FREE ACCESS (15:00–21:30) ---
         if (isActualNightShift()) {
             GlobalScope.launch(Dispatchers.IO) {
@@ -329,112 +410,6 @@ class AccessRepository(val context: Context) {
         // ── Jim Catering golden pass check ──────────────────────────────────
         val isUnlimited = company.equals("JimCatering", ignoreCase = true) ||
             employee.name.trim().equals("Jim Catering", ignoreCase = true)
-
-        // ── Area 2 mode: only Area 2 employees (+ Jim Catering) are allowed ─
-        if (isArea2Mode) {
-            val isInArea2List = isInArea2List(employee.name)
-
-            if (!isInArea2List && !isUnlimited) {
-                logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "NOT_IN_AREA2", currentArea)
-                return VerificationResult.Failure(
-                    VerificationResult.Failure.Reason.BLACK_LISTED,
-                    scannedInput,
-                    company,
-                    timestamp = timestamp
-                )
-            }
-
-            // Jim Catering in Area 2: golden pass
-            if (isUnlimited) {
-                GlobalScope.launch(Dispatchers.IO) {
-                    scanEventDao.insert(ScanEvent(
-                        timestamp = timestamp,
-                        scannedCode = scannedInput,
-                        matchedName = employee!!.name,
-                        company = company,
-                        result = "SUCCESS",
-                        reason = "UNLIMITED",
-                        shift = shift,
-                        area = currentArea
-                    ))
-                }
-                return VerificationResult.Success(
-                    originalName = scannedInput,
-                    normalizedName = normalizedInput,
-                    matchedName = employee.name,
-                    isFuzzyMatch = isFuzzy,
-                    requiresNote = true,
-                    timestamp = timestamp
-                )
-            }
-
-            // Area 2 employee: apply daily limit (1/shift) + bonus
-            val countKey = "area2_count_${matchedKey}_$shift"
-            val currentUsage = prefs.getInt(countKey, 0)
-            val allowance = 1
-
-            if (currentUsage < allowance) {
-                val newCount = currentUsage + 1
-                prefs.edit().putInt(countKey, newCount).apply()
-                GlobalScope.launch(Dispatchers.IO) {
-                    syncStatsToDb()
-                    updateScanCountFlow()
-                    scanEventDao.insert(ScanEvent(
-                        timestamp = timestamp,
-                        scannedCode = scannedInput,
-                        matchedName = employee!!.name,
-                        company = company,
-                        result = "SUCCESS",
-                        reason = null,
-                        shift = shift,
-                        area = currentArea
-                    ))
-                }
-                return VerificationResult.Success(
-                    originalName = scannedInput,
-                    normalizedName = normalizedInput,
-                    matchedName = employee.name,
-                    isFuzzyMatch = isFuzzy,
-                    timestamp = timestamp
-                )
-            } else {
-                // Bonus for Area 2
-                val bonusKey = "area2_bonus_used_$shift"
-                val usedBonus = prefs.getInt(bonusKey, 0)
-                if (usedBonus < DAILY_BONUS_THRESHOLD) {
-                    val newBonus = usedBonus + 1
-                    prefs.edit().putInt(bonusKey, newBonus).apply()
-                    GlobalScope.launch(Dispatchers.IO) {
-                        syncStatsToDb()
-                        updateScanCountFlow()
-                        scanEventDao.insert(ScanEvent(
-                            timestamp = timestamp,
-                            scannedCode = scannedInput,
-                            matchedName = employee!!.name,
-                            company = company,
-                            result = "BONUS",
-                            reason = "LIMIT_REACHED_BONUS($newBonus/$DAILY_BONUS_THRESHOLD)",
-                            shift = shift,
-                            area = currentArea
-                        ))
-                    }
-                    return VerificationResult.Success(
-                        originalName = scannedInput,
-                        normalizedName = normalizedInput,
-                        matchedName = employee.name + " (BONUS)",
-                        isFuzzyMatch = isFuzzy,
-                        timestamp = timestamp
-                    )
-                } else {
-                    logEvent(timestamp, scannedInput, employee.name, company, "DENIED", "LIMIT_REACHED", currentArea)
-                    return VerificationResult.Failure(
-                        VerificationResult.Failure.Reason.LIMIT_REACHED,
-                        scannedInput,
-                        timestamp = timestamp
-                    )
-                }
-            }
-        }
 
         // ── Standard (MAIN) mode logic below ────────────────────────────────
 
