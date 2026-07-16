@@ -261,62 +261,94 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Day counter
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(androidx.compose.ui.graphics.Color(0xFFFFFBEB))
-                    .border(1.dp, androidx.compose.ui.graphics.Color(0xFFFDE68A), RoundedCornerShape(14.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "☀",
-                        fontSize = 18.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "$dayCount",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = androidx.compose.ui.graphics.Color(0xFFB45309)
-                    )
-                    Text(
-                        text = "DAY",
-                        style = MaterialTheme.typography.labelSmall,
-                        letterSpacing = 1.sp,
-                        color = androidx.compose.ui.graphics.Color(0xFFB45309).copy(alpha = 0.7f)
-                    )
+            if (isArea2Mode) {
+                // Area 2: single daily counter (no day/night split)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFF5F3FF))
+                        .border(1.dp, Color(0xFFDDD6FE), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "🏠",
+                            fontSize = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "$dayCount",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF7C3AED)
+                        )
+                        Text(
+                            text = "TODAY",
+                            style = MaterialTheme.typography.labelSmall,
+                            letterSpacing = 1.sp,
+                            color = Color(0xFF7C3AED).copy(alpha = 0.7f)
+                        )
+                    }
                 }
-            }
-            // Night counter
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(androidx.compose.ui.graphics.Color(0xFFEFF6FF))
-                    .border(1.dp, androidx.compose.ui.graphics.Color(0xFFBFDBFE), RoundedCornerShape(14.dp))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "🌙",
-                        fontSize = 18.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "$nightCount",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = androidx.compose.ui.graphics.Color(0xFF1D4ED8)
-                    )
-                    Text(
-                        text = "NIGHT",
-                        style = MaterialTheme.typography.labelSmall,
-                        letterSpacing = 1.sp,
-                        color = androidx.compose.ui.graphics.Color(0xFF1D4ED8).copy(alpha = 0.7f)
-                    )
+            } else {
+                // Day counter
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFFFFBEB))
+                        .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "☀",
+                            fontSize = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "$dayCount",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFFB45309)
+                        )
+                        Text(
+                            text = "DAY",
+                            style = MaterialTheme.typography.labelSmall,
+                            letterSpacing = 1.sp,
+                            color = Color(0xFFB45309).copy(alpha = 0.7f)
+                        )
+                    }
+                }
+                // Night counter
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFEFF6FF))
+                        .border(1.dp, Color(0xFFBFDBFE), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "🌙",
+                            fontSize = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "$nightCount",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF1D4ED8)
+                        )
+                        Text(
+                            text = "NIGHT",
+                            style = MaterialTheme.typography.labelSmall,
+                            letterSpacing = 1.sp,
+                            color = Color(0xFF1D4ED8).copy(alpha = 0.7f)
+                        )
+                    }
                 }
             }
         }
