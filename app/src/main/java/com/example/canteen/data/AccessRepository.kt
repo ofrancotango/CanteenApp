@@ -144,6 +144,8 @@ class AccessRepository(val context: Context) {
             prefs.all.forEach { (key, _) ->
                 if (key.startsWith("count_")) edit.remove(key)
                 if (key.startsWith("daily_bonus_used_")) edit.remove(key)
+                if (key.startsWith("area2_count_")) edit.remove(key)
+                if (key == "area2_bonus_used") edit.remove(key)
             }
             edit.putString("last_run_date", todayDate)
             edit.apply()
@@ -301,8 +303,36 @@ class AccessRepository(val context: Context) {
                 )
             }
 
+            val isUnlimited = area2Emp.name.trim().equals("Jim Catering", ignoreCase = true) ||
+                area2Emp.company.equals("JimCatering", ignoreCase = true)
+
+            // Jim Catering golden pass in Area 2: unlimited, requires a note (like normal mode)
+            if (isUnlimited) {
+                GlobalScope.launch(Dispatchers.IO) {
+                    scanEventDao.insert(ScanEvent(
+                        timestamp = timestamp,
+                        scannedCode = scannedInput,
+                        matchedName = area2Emp.name,
+                        company = area2Emp.company,
+                        result = "SUCCESS",
+                        reason = "UNLIMITED",
+                        shift = shift,
+                        area = currentArea
+                    ))
+                }
+                return VerificationResult.Success(
+                    originalName = scannedInput,
+                    normalizedName = normalizedInput,
+                    matchedName = area2Emp.name,
+                    isFuzzyMatch = true,
+                    requiresNote = true,
+                    timestamp = timestamp
+                )
+            }
+
+            // Area 2 non-Jim employees: one entry per day (no day/night split)
             val matchedKey = StringNormalizer.normalize(area2Emp.name)
-            val countKey = "area2_count_${matchedKey}_$shift"
+            val countKey = "area2_count_${matchedKey}"
             val currentUsage = prefs.getInt(countKey, 0)
             val allowance = 1
 
@@ -331,8 +361,8 @@ class AccessRepository(val context: Context) {
                     timestamp = timestamp
                 )
             } else {
-                // Bonus per turno in Area 2
-                val bonusKey = "area2_bonus_used_$shift"
+                // Daily bonus pool for Area 2 (no day/night split)
+                val bonusKey = "area2_bonus_used"
                 val usedBonus = prefs.getInt(bonusKey, 0)
                 if (usedBonus < DAILY_BONUS_THRESHOLD) {
                     val newBonus = usedBonus + 1
@@ -609,7 +639,7 @@ class AccessRepository(val context: Context) {
         }
         
         val bonus = prefs.getInt("daily_bonus_used", 0)
-        val area2Bonus = prefs.getInt("area2_bonus_used_DAY", 0) + prefs.getInt("area2_bonus_used_NIGHT", 0)
+        val area2Bonus = prefs.getInt("area2_bonus_used", 0)
         totalScans += bonus + area2Bonus
         
         return mapOf(
